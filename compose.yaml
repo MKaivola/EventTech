@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16.3
+    container_name: TechEventData
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_DB=TechEventData
+      - POSTGRES_USER=Mikko
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
