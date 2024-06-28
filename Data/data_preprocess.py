@@ -23,3 +23,42 @@ events_2022_2023_responses = utils.preprocess_event_csv('Data/Tapahtumat_2022_20
 
 events_responses = pd.concat((events_2021_2022_responses, events_2022_2023_responses))
 
+events_colnames = {'Keikka': 'name_event', 'Paikka': 'location_event',
+                   'Päiväys': 'date_event', 'Kuvaus': 'description_event'}
+events = utils.df_db_preprocessing(events_responses,
+                                   events_colnames,
+                                   'id_event',
+                                   'Keikka')
+
+names_colnames = {'Nimi':'name_tech'}
+names = utils.df_db_preprocessing(events_responses,
+                                  names_colnames,
+                                  'id_name',
+                                  'Nimi')
+
+jobs_colnames = {'Homma': 'name_job'}
+jobs = utils.df_db_preprocessing(events_responses,
+                                 jobs_colnames,
+                                 'id_job',
+                                 'Homma')
+
+signups_colnames = {'Vastaus':'answer', 'Keikka': 'name_event'} | names_colnames | jobs_colnames
+
+signups = utils.df_db_preprocessing(events_responses,
+                                    signups_colnames,
+                                    'id_signup')
+
+signups = (signups.merge(events, on='name_event', validate='m:1')
+           .merge(names, on='name_tech', validate='m:1')
+           .merge(jobs, on='name_job', validate='m:1')
+           .loc[:, ['id_signup', 'id_event', 'id_name', 'id_job',
+                    'answer']]
+           .rename(columns={'id_event': 'event_id',
+                            'id_name': 'name_id',
+                            'id_job': 'job_id'}))
+
+db = EventDataBase("postgresql://Mikko:password@localhost:5432/TechEventData")
+
+db._create_tables(names, events, jobs, signups)
+
+

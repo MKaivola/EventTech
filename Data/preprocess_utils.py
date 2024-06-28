@@ -76,3 +76,31 @@ def preprocess_event_csv(path_to_csv: str,
     df_responses.loc[:, 'Vastaus'] = df_responses.loc[:, 'Vastaus'].str.strip().str.lower()
 
     return df_responses
+
+def df_db_preprocessing(dataframe: pd.DataFrame, colnames: dict[str,str],
+                        id_name: str, duplicate_col: str | None = None) -> pd.DataFrame:
+    """
+    Preprocess dataframes into a format suitable for database insertion
+
+    Arguments
+    ---------
+    dataframe
+        A pandas dataframe to be processed
+    colnames
+        A dictionary containing (colname, db_colname) pairs, colnames
+        is the original column name and db_colname the corresponding db column name
+    id_name
+        A string specifying the database index column name
+    duplicate_col
+        An optional column label which is used to filter for duplicates
+    """
+
+    df = dataframe.loc[:, list(colnames)]
+
+    if duplicate_col is not None:
+        df = df.drop_duplicates(subset=duplicate_col, ignore_index=True)
+    
+    df = (df.reset_index(drop=True).rename_axis(index=id_name).reset_index()
+          .rename(columns=colnames))
+    
+    return df
