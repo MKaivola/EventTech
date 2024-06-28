@@ -54,9 +54,14 @@ def preprocess_event_csv(path_to_csv: str,
             df_proc = df_proc.drop(index=index_to_drop)
 
     # Transform date column to datetime format
-    df_proc.loc[:, 'Päiväys'] = pd.to_datetime(df_proc.loc[: ,'Päiväys'], 
+    df_proc['Päiväys'] = pd.to_datetime(df_proc.loc[: ,'Päiväys'], 
                                                             dayfirst=True,
                                                             format='mixed')
+    
+    # Concatenate year at the end of every event
+    df_proc.loc[:, 'Keikka'] = (df_proc.loc[:, 'Keikka'].str.cat(
+        df_proc.loc[:, 'Päiväys'].dt.year.astype('string'), sep=" ")
+        )
 
     # Melt the table into a response format: Name columns are transformed into (Name, Response) pairs
     # Filter empty responses
