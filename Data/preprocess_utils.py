@@ -4,7 +4,8 @@ from collections.abc import Iterable
 
 def preprocess_event_csv(path_to_csv: str, 
                          filter: dict[str, Iterable[str]] | None = None,
-                         nan_mask: dict[str, Iterable[str]] | None = None) -> pd.DataFrame:
+                         replace_dict: dict[str, dict[str, str]] | None = None,
+                         column_rename: dict[str, str] | None = None) -> pd.DataFrame:
     """
     Preprocess event data csv file to the desired format
 
@@ -14,8 +15,11 @@ def preprocess_event_csv(path_to_csv: str,
         A string specifying the path to the event csv file
     filter:
         A dictionary containing (column name, values) pairs to filter out rows
-    nan_mask:
-        A dictionary containing (column name, values) pairs to mask with NaN/NA
+    replace_dict:
+        A nested dictionary. Outer dict specifies column, inner dict specifies
+        a replacement value for a given value inside a given column
+    column_rename
+        A dictionary specifying (column_old, column_new) label pairs
     """
 
     df = pd.read_csv(path_to_csv)
@@ -29,11 +33,13 @@ def preprocess_event_csv(path_to_csv: str,
                 .drop('Aikaikkuna', axis=1)
                 .dropna(axis=0, how='all', subset='Homma'))
 
-    # Mask values with NaN/NA before forward filling
-    if nan_mask is not None:
-        for column, values in nan_mask.items():
-            bool_where = df_proc[column].isin(values)
-            df_proc.loc[:, column] = df_proc.loc[:, column].mask(bool_where)
+    # Replace values in each column before forward filling
+    if replace_dict is not None:
+        df_proc = df_proc.replace(replace_dict)
+
+    # Rename columns
+    if column_rename is not None:
+        df_proc = df_proc.rename(columns=column_rename)
     
     # Fill relevant columns
     fillcols = ['Keikka', 'Paikka', 'Päiväys', 'Kuvaus']
