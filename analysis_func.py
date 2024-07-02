@@ -65,3 +65,54 @@ def monthly_event_counts(db: EventDataBase,
                                     .rename_axis(columns='Fiscal Year'))
     
     return event_counts
+
+def yearly_technician_signups(db: EventDataBase,
+                            period_names:
+                            Iterable[str]) -> pd.DataFrame:
+    """
+    Extract yearly signup counts for each technician
+
+    Arguments
+    ---------
+    db:
+        A database object
+    period_names:
+        An iterable containing the period names to extract
+    """
+
+    # Select each technician and event date from signup data for a given period
+    signups_for_period_stmt = (Select(db.names.c.name_tech,
+                                db.events.c.date_event)
+                                .join_from(db.signups, db.names, 
+                                           db.signups.c.name_id == db.names.c.id_name)
+                                .join(db.events, 
+                                      db.events.c.id_event == db.signups.c.event_id)
+                                .where(bindparam('start_date') <= db.events.c.date_event,
+                                   db.events.c.date_event <= bindparam('end_date')))
+    
+    periods = utils_analysis.get_periods(db,
+                                         period_names)
+    
+    signups = utils_analysis.get_and_concat_periods(db,
+                                                    signups_for_period_stmt,
+                                                    periods)
+    
+    periods = utils_analysis.generate_pd_periods(periods,
+                                                 'D')
+    
+    # Add Period objects corresponding to date_event for a merge
+    signups['Period'] = pd.to_datetime(signups['date_event']).dt.to_period('D')
+
+    signups = signups.merge(periods, 
+                            on='Period')
+    
+    # Count the number of signups for each technician and fiscal year
+    signup_counts = (pd.pivot_table(signups,
+                                   index='name_tech',
+                                   columns='period_name',
+                                   values='Period',
+                                   aggfunc='count',
+                                   fill_value=0)
+                                   .rename_axis(columns='Fiscal Year'))
+    
+    return signup_counts
