@@ -1,10 +1,13 @@
+from collections.abc import Iterable
+
 import pandas as pd
-from sqlalchemy import Select
+from sqlalchemy import Select, bindparam
 from sqlalchemy import func
 
 from Data.db_metadata import EventDataBase
 
-def monthly_event_counts(db: EventDataBase) -> pd.DataFrame:
+def monthly_event_counts(db: EventDataBase,
+                         period_names: Iterable[str]) -> pd.DataFrame:
     """
     Extract monthly event counts for each fiscal period
 
@@ -12,11 +15,16 @@ def monthly_event_counts(db: EventDataBase) -> pd.DataFrame:
     ---------
     db:
         A database object
+    period_names:
+        An iterable containing the period names to extract
     """
 
-    # Extract year and month component of each event date
+    # Extract year and month component of each event date, 
+    # selecting events for a given fiscal period
     events_sbq = (Select(func.extract('year', db.events.c.date_event).label('year'),
                         func.extract('month', db.events.c.date_event).label('month'))
+                        .where(bindparam('start_date') <= db.events.c.date_event,
+                                   db.events.c.date_event <= bindparam('end_date'))
                         .subquery())
 
     # Calculate how many events fall to each month-year
@@ -24,11 +32,25 @@ def monthly_event_counts(db: EventDataBase) -> pd.DataFrame:
                             .group_by(events_sbq.c['year', 'month'])
                             .order_by(events_sbq.c['year', 'month'])
                             )
+    
+    # Select relevant periods
+    periods_stmt = (Select(db.periods.c['period_name', 'start_date', 'end_date'])
+                    .where(db.periods.c.period_name.in_(period_names)))
+
     with db.engine.begin() as conn:
-        events_per_month = pd.read_sql(events_per_month_stmt,
-                                    conn)
-        periods = pd.read_sql(Select(db.periods.c['period_name', 'start_date', 'end_date']),
+        periods = pd.read_sql(periods_stmt,
                             conn)
+        
+        # Extract counts for each fiscal period
+        events_per_month_list = [pd.read_sql(events_per_month_stmt,
+                                                     conn,
+                                                     params={
+                                                         'start_date': row['start_date'],
+                                                         'end_date': row['end_date']
+                                                     }) for _, row in periods.iterrows()]
+        
+        events_per_month = pd.concat(events_per_month_list)
+        
 
     # Construct all monthly periods for each fiscal year
     periods['Month'] = periods.apply(lambda row: pd.period_range(start=row['start_date'],
