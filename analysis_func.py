@@ -67,8 +67,7 @@ def monthly_event_counts(db: EventDataBase,
     return event_counts
 
 def yearly_technician_signups(db: EventDataBase,
-                            period_names:
-                            Iterable[str]) -> pd.DataFrame:
+                            period_names: Iterable[str]) -> pd.DataFrame:
     """
     Extract yearly signup counts for each technician
 
@@ -116,3 +115,49 @@ def yearly_technician_signups(db: EventDataBase,
                                    .rename_axis(columns='Fiscal Year'))
     
     return signup_counts
+
+def popular_event_signups_per_job(db: EventDataBase,
+                                  period: Iterable[str],
+                                  jobs: Iterable[str]) -> pd.DataFrame:
+    
+    event_signup_count_per_job_stmt = (Select(db.events.c.name_event,
+                                                db.events.c.date_event,
+                                                db.jobs.c.name_job,
+                                                func.count().label('signup_count'))
+                                                .join_from(db.events, db.signups,
+                                                         db.events.c.id_event == db.signups.c.event_id)
+                                                .join(db.jobs, db.jobs.c.id_job == db.signups.c.job_id)
+                                                .where(bindparam('start_date') <= db.events.c.date_event,
+                                                        db.events.c.date_event <= bindparam('end_date'),
+                                                        db.jobs.c.name_job.in_(jobs))
+                                                .group_by(db.events.c.name_event, 
+                                                          db.jobs.c.name_job,
+                                                          db.events.c.date_event))
+    
+    periods = utils_analysis.get_periods(db,
+                                         period)
+    
+    event_signup_count_per_job = utils_analysis.get_and_concat_periods(db,
+                                                                       event_signup_count_per_job_stmt,
+                                                                       periods)
+    
+    periods = utils_analysis.generate_pd_periods(periods,
+                                                 'D')
+    
+    event_signup_count_per_job['Period'] = pd.to_datetime(event_signup_count_per_job['date_event']).dt.to_period('D')
+
+    event_signup_count_per_job = event_signup_count_per_job.merge(periods,
+                                                                on='Period')
+    
+    event_signup_counts = (event_signup_count_per_job.pivot(index=['period_name','name_event'],
+                                                           columns='name_job',
+                                                           values='signup_count'))
+    
+    event_sums = (event_signup_counts
+                  .sum(axis=1)
+                  .groupby(level='period_name', group_keys=False)
+                  .nlargest(5))
+
+    event_signup_counts = event_signup_counts.loc[event_sums.index,:]
+
+    return event_signup_counts
