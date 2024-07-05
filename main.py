@@ -24,8 +24,11 @@ signup_counts.plot(kind='bar',
 
 signup_counts_per_event = analysis_func.popular_event_signups_per_job(db,
                                                                       ('2021-2022','2022-2023'),
-                                                                      ('Kasaus', 'Veto', 'Purku'))
+                                                                      ('Kasaus', 'Veto', 'Purku'),
+                                                                      5)
 
 plotting_tools.outer_index_barplot(signup_counts_per_event,
-                                   'Plots/top_event_signups.pdf')
+                                   'Plots/top_event_signups.pdf',
+                                   'Most popular events by signup',
+                                   nrows=1,ncols=2)
 

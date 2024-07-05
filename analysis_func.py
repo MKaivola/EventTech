@@ -118,8 +118,25 @@ def yearly_technician_signups(db: EventDataBase,
 
 def popular_event_signups_per_job(db: EventDataBase,
                                   period: Iterable[str],
-                                  jobs: Iterable[str]) -> pd.DataFrame:
+                                  jobs: Iterable[str],
+                                  top_n_events: int) -> pd.DataFrame:
     
+    """
+    Extract top n events by total signups for each given fiscal year
+
+    Arguments
+    ---------
+    db:
+        A database object
+    period:
+        An iterable containing the period names to extract
+    jobs:
+        An iterable containing the jobs to consider
+    top_n_events:
+        An integer specifying how many top events to return
+    """
+
+    # Calculate signups for each event and given jobs in a given fiscal year
     event_signup_count_per_job_stmt = (Select(db.events.c.name_event,
                                                 db.events.c.date_event,
                                                 db.jobs.c.name_job,
@@ -146,18 +163,23 @@ def popular_event_signups_per_job(db: EventDataBase,
     
     event_signup_count_per_job['Period'] = pd.to_datetime(event_signup_count_per_job['date_event']).dt.to_period('D')
 
+    # Merge fiscal year information to events
     event_signup_count_per_job = event_signup_count_per_job.merge(periods,
                                                                 on='Period')
     
+    # Use MultiIndex to represent each event
     event_signup_counts = (event_signup_count_per_job.pivot(index=['period_name','name_event'],
                                                            columns='name_job',
-                                                           values='signup_count'))
+                                                           values='signup_count')
+                                                           .rename_axis(columns='Job'))
     
+    # Calculate total signups, group by fiscal year and extract top events
+    # by total signup for each fiscal year
     event_sums = (event_signup_counts
                   .sum(axis=1)
                   .groupby(level='period_name', group_keys=False)
-                  .nlargest(5))
-
+                  .nlargest(top_n_events))
+    
     event_signup_counts = event_signup_counts.loc[event_sums.index,:]
 
     return event_signup_counts
