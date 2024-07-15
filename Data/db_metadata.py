@@ -1,10 +1,10 @@
 from sqlalchemy import create_engine, Table, Column, MetaData, ForeignKey, Insert, Select
-from sqlalchemy import Integer, String, Date
+from sqlalchemy import Integer, String, Date, URL
 import pandas as pd
 
 class EventDataBase():
 
-    def __init__(self, connection_url: str) -> None:
+    def __init__(self, connection_url: URL) -> None:
 
         self.engine = create_engine(connection_url)
 

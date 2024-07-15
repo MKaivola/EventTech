@@ -1,9 +1,13 @@
-from Data.db_metadata import EventDataBase
+from sqlalchemy import URL
 
+from Data.db_metadata import EventDataBase
 import analysis_func
 import plotting_tools
+from config.config import parse_db_config
 
-db = EventDataBase("postgresql://Mikko:password@localhost:5432/TechEventData")
+conn_string = URL.create(**parse_db_config('config/config.ini'))
+
+db = EventDataBase(conn_string)
 
 ### Plot how many events for each month and year ###
 
