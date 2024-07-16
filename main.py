@@ -1,11 +1,14 @@
+from pathlib import Path
+
 from sqlalchemy import URL
 
 from Data.db_metadata import EventDataBase
 import analysis_func
 import plotting_tools
-from config.config import parse_db_config
+from Data.config.config import parse_db_config
 
-conn_string = URL.create(**parse_db_config('config/config.ini'))
+config_file_path = str(Path(__file__).parent / 'Data' / 'config' / 'config.ini')
+conn_string = URL.create(**parse_db_config(config_file_path))
 
 db = EventDataBase(conn_string)
 

@@ -1,8 +1,12 @@
+from pathlib import Path
+
 import pandas as pd
 from numpy import nan
+from sqlalchemy import URL
 
 import preprocess_utils as utils
 from db_metadata import EventDataBase
+from config.config import parse_db_config
 
 events_2021_2022_filter = {'Kuvaus': ['Peruttiin']}
 
@@ -57,7 +61,11 @@ signups = (signups.merge(events, on='name_event', validate='m:1')
                             'id_name': 'name_id',
                             'id_job': 'job_id'}))
 
-db = EventDataBase("postgresql://Mikko:password@localhost:5432/TechEventData")
+config_file_path = str(Path(__file__).parent / 'config' / 'config.ini')
+
+conn_string = URL.create(**parse_db_config(config_file_path))
+
+db = EventDataBase(conn_string)
 
 db._create_tables(names, events, jobs, signups)
 
