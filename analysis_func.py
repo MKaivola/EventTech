@@ -1,13 +1,14 @@
 from collections.abc import Iterable
 
 import pandas as pd
-from sqlalchemy import Select, bindparam
+from sqlalchemy import Select, bindparam, Connection
 from sqlalchemy import func
 
 from Data.db_metadata import EventDataBase
 import utils_analysis
 
 def monthly_event_counts(db: EventDataBase,
+                         conn: Connection,
                          period_names: Iterable[str]) -> pd.DataFrame:
     """
     Extract monthly event counts for each fiscal period
@@ -16,6 +17,8 @@ def monthly_event_counts(db: EventDataBase,
     ---------
     db:
         A database object
+    conn:
+        A db connection object
     period_names:
         An iterable containing the period names to extract
     """
@@ -36,9 +39,11 @@ def monthly_event_counts(db: EventDataBase,
     
     # Select relevant periods
     periods = utils_analysis.get_periods(db,
+                                         conn,
                                          period_names)
 
     events_per_month = utils_analysis.get_and_concat_periods(db,
+                                                             conn,
                                                              events_per_month_stmt,
                                                              periods)
 
@@ -67,7 +72,8 @@ def monthly_event_counts(db: EventDataBase,
     return event_counts
 
 def yearly_technician_signups(db: EventDataBase,
-                            period_names: Iterable[str]) -> pd.DataFrame:
+                                conn: Connection,
+                                period_names: Iterable[str]) -> pd.DataFrame:
     """
     Extract yearly signup counts for each technician
 
@@ -75,6 +81,8 @@ def yearly_technician_signups(db: EventDataBase,
     ---------
     db:
         A database object
+    conn:
+        A db connection object
     period_names:
         An iterable containing the period names to extract
     """
@@ -90,9 +98,11 @@ def yearly_technician_signups(db: EventDataBase,
                                    db.events.c.date_event <= bindparam('end_date')))
     
     periods = utils_analysis.get_periods(db,
+                                         conn,
                                          period_names)
     
     signups = utils_analysis.get_and_concat_periods(db,
+                                                    conn,
                                                     signups_for_period_stmt,
                                                     periods)
     
@@ -117,6 +127,7 @@ def yearly_technician_signups(db: EventDataBase,
     return signup_counts
 
 def popular_event_signups_per_job(db: EventDataBase,
+                                  conn: Connection,
                                   period: Iterable[str],
                                   jobs: Iterable[str],
                                   top_n_events: int) -> pd.DataFrame:
@@ -128,6 +139,8 @@ def popular_event_signups_per_job(db: EventDataBase,
     ---------
     db:
         A database object
+    conn:
+        A db connection object
     period:
         An iterable containing the period names to extract
     jobs:
@@ -152,9 +165,11 @@ def popular_event_signups_per_job(db: EventDataBase,
                                                           db.events.c.date_event))
     
     periods = utils_analysis.get_periods(db,
+                                         conn,
                                          period)
     
     event_signup_count_per_job = utils_analysis.get_and_concat_periods(db,
+                                                                       conn,
                                                                        event_signup_count_per_job_stmt,
                                                                        periods)
     

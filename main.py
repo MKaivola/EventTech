@@ -12,30 +12,35 @@ conn_string = URL.create(**parse_db_config(config_file_path))
 
 db = EventDataBase(conn_string)
 
-### Plot how many events for each month and year ###
+with db.engine.begin() as conn:
 
-event_counts = analysis_func.monthly_event_counts(db,
-                                                  ('2021-2022','2022-2023'))
+    ### Plot how many events for each month and year ###
 
-event_counts.plot(kind='bar',
-                  title='Number of events').figure.savefig('Plots/event_counts.pdf')
+    event_counts = analysis_func.monthly_event_counts(db,
+                                                        conn,
+                                                        ('2021-2022','2022-2023'))
 
-### Plot how many signups each technician has for each year ###
-signup_counts = analysis_func.yearly_technician_signups(db,
-                                                  ('2021-2022','2022-2023'))
+    event_counts.plot(kind='bar',
+                    title='Number of events').figure.savefig('Plots/event_counts.pdf')
 
-signup_counts.plot(kind='bar',
-                   title='Number of signups').figure.savefig('Plots/signup_counts.pdf')
+    ### Plot how many signups each technician has for each year ###
+    signup_counts = analysis_func.yearly_technician_signups(db,
+                                                            conn,
+                                                            ('2021-2022','2022-2023'))
 
-### Plot most popular event signup counts for each job for each year ###
+    signup_counts.plot(kind='bar',
+                    title='Number of signups').figure.savefig('Plots/signup_counts.pdf')
 
-signup_counts_per_event = analysis_func.popular_event_signups_per_job(db,
-                                                                      ('2021-2022','2022-2023'),
-                                                                      ('Kasaus', 'Veto', 'Purku'),
-                                                                      5)
+    ### Plot most popular event signup counts for each job for each year ###
 
-plotting_tools.outer_index_barplot(signup_counts_per_event,
-                                   'Plots/top_event_signups.pdf',
-                                   'Most popular events by signup',
-                                   nrows=1,ncols=2)
+    signup_counts_per_event = analysis_func.popular_event_signups_per_job(db,
+                                                                            conn,
+                                                                            ('2021-2022','2022-2023'),
+                                                                            ('Kasaus', 'Veto', 'Purku'),
+                                                                            5)
+
+    plotting_tools.outer_index_barplot(signup_counts_per_event,
+                                        'Plots/top_event_signups.pdf',
+                                        'Most popular events by signup',
+                                        nrows=1,ncols=2)
 
