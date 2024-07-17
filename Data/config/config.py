@@ -28,11 +28,12 @@ def parse_db_config(filepath: str) -> dict[str,str]:
             ssm_client = session.client('ssm')
             rds_client = session.client('rds')
 
-            params = ssm_client.get_parameters(['/dev/prod/EventTech/db/region',
-                                                '/dev/prod/EventTech/db/endpoint'])
+            params = ssm_client.get_parameters(Names=['/dev/prod/EventTech/db/region',
+                                                '/dev/prod/EventTech/db/endpoint'],
+						WithDecryption=True)
             
-            region = params['Parameters'][0]['Value']
-            endpoint = params['Parameters'][1]['Value']
+            region = params['Parameters'][1]['Value']
+            endpoint = params['Parameters'][0]['Value']
 
             db_auth_token = rds_client.generate_db_auth_token(DBHostname = endpoint,
                                                               Port = db_config['port'],
