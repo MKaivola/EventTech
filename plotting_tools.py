@@ -121,9 +121,9 @@ def s3_upload(local_path: str,
         AWS S3 client object
     """
     
-    bucket_name = config['S3BucketName']
+    bucket_name = config['s3_bucket_name']
 
-    full_path_bucket = "".join([config['S3PlotDir'], '/', os.path.basename(local_path)])
+    full_path_bucket = "".join([config['s3_plot_dir'], '/', os.path.basename(local_path)])
 
     s3_client.upload_file(Filename = local_path,
                             Bucket = bucket_name,

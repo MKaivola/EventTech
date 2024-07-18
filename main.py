@@ -21,7 +21,7 @@ plot_file_dir = os.path.expanduser(storage_config['local_plot_dir'])
 
 storage_config['local_plot_dir'] = plot_file_dir
 
-if 'S3BucketName' in storage_config:
+if 's3_bucket_name' in storage_config:
     session = boto3.Session()
     s3_client = session.client('s3')
 
