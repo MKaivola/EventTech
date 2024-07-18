@@ -30,7 +30,7 @@ def parse_db_config(filepath: str) -> dict[str,str]:
 
             params = ssm_client.get_parameters(Names=['/dev/prod/EventTech/db/region',
                                                 '/dev/prod/EventTech/db/endpoint'],
-						WithDecryption=True)
+						                        WithDecryption=True)
             
             region = params['Parameters'][1]['Value']
             endpoint = params['Parameters'][0]['Value']
@@ -46,3 +46,13 @@ def parse_db_config(filepath: str) -> dict[str,str]:
             raise ValueError('Unknown environment')
 
     return db_config
+
+def parse_storage_config(filepath: str) -> dict[str, str]:
+
+    config = configparser.ConfigParser()
+
+    config.read_file(open(filepath))
+
+    storage_config = dict(config['Storage'])
+
+    return storage_config

@@ -1,23 +1,32 @@
+import os
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
 def outer_index_barplot(df: pd.DataFrame,
-                        filepath: str,
+                        filename: str,
                         suptitle: str,
+                        config: dict[str,str],
+                        s3_client = None,
                         xlab: str = "",
                         nrows: int = 1,
                         ncols: int = 1) -> None:
     """
     Plot separate barplots for each outer level of a MultiIndex
+    Optionally, save the figure to AWS S3 bucket
 
     Arguments
     ---------
     df:
         A MultiIndex dataframe
-    filepath:
-        A string specifying where to save the figure
+    filename:
+        A string specifying the filename of the figure
     suptitle:
         A string specifying the name of the plot
+    config:
+        Storage configuration dictionary
+    s3_client
+        AWS S3 client object
     xlab:
         A string specifying the x-axis label of each figure
     nrows, ncols:
@@ -49,4 +58,73 @@ def outer_index_barplot(df: pd.DataFrame,
         
     plt.suptitle(suptitle)
     plt.tight_layout()
-    fig.savefig(filepath)
+
+    local_plot_dir = config['local_plot_dir']
+
+    full_path = "".join([local_plot_dir, '/', filename])
+    fig.savefig(full_path)
+
+    if s3_client is not None:
+        s3_upload(full_path,
+                  config,
+                  s3_client)
+
+def barplot(df: pd.DataFrame,
+                    title: str,
+                    filename: str,
+                    config: dict[str,str],
+                    s3_client = None) -> None:
+    """
+    Plot a single barplot based on a pandas dataframe
+    Optionally, save the figure to AWS S3 bucker
+
+    Arguments
+    ---------
+    df:
+        pandas dataframe
+    title:
+        Title of the figure
+    filename:
+        A string specifying the filename
+    config:
+        Storage configuration dictionary
+    s3_client:
+        AWS S3 client object
+    """
+    
+    local_plot_dir = config['local_plot_dir']
+
+    full_path = "".join([local_plot_dir, '/', filename])
+    
+    # First save locally
+    df.plot(kind='bar',
+                    title=title).figure.savefig(full_path)
+    
+    if s3_client is not None:
+        s3_upload(full_path,
+                  config,
+                  s3_client)
+        
+def s3_upload(local_path: str,
+              config: str,
+              s3_client) -> None:
+    """
+    Upload locally saved object to AWS S3 bucket
+
+    Arguments
+    ---------
+    local_path:
+        Absolute path to locally stored object
+    config:
+        Storage configuration dictionary
+    s3_client:
+        AWS S3 client object
+    """
+    
+    bucket_name = config['S3BucketName']
+
+    full_path_bucket = "".join([config['S3PlotDir'], '/', os.path.basename(local_path)])
+
+    s3_client.upload_file(Filename = local_path,
+                            Bucket = bucket_name,
+                            key = full_path_bucket)

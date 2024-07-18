@@ -1,16 +1,32 @@
 from pathlib import Path
+import os
 
 from sqlalchemy import URL
+import boto3
 
 from Data.db_metadata import EventDataBase
 import analysis_func
 import plotting_tools
-from Data.config.config import parse_db_config
+from Data.config.config import parse_db_config, parse_storage_config
+
 
 config_file_path = str(Path(__file__).parent / 'Data' / 'config' / 'config.ini')
 conn_string = URL.create(**parse_db_config(config_file_path))
 
 db = EventDataBase(conn_string)
+
+storage_config = parse_storage_config(config_file_path)
+
+plot_file_dir = os.path.expanduser(storage_config['local_plot_dir'])
+
+storage_config['local_plot_dir'] = plot_file_dir
+
+if 'S3BucketName' in storage_config:
+    session = boto3.Session()
+    s3_client = session.client('s3')
+
+else:
+    s3_client = None
 
 with db.engine.begin() as conn:
 
@@ -19,17 +35,23 @@ with db.engine.begin() as conn:
     event_counts = analysis_func.monthly_event_counts(db,
                                                         conn,
                                                         ('2021-2022','2022-2023'))
-
-    event_counts.plot(kind='bar',
-                    title='Number of events').figure.savefig('Plots/event_counts.pdf')
+    
+    plotting_tools.barplot(event_counts,
+                           'Number of events',
+                           'event_counts.pdf',
+                           storage_config,
+                           s3_client)
 
     ### Plot how many signups each technician has for each year ###
     signup_counts = analysis_func.yearly_technician_signups(db,
                                                             conn,
                                                             ('2021-2022','2022-2023'))
-
-    signup_counts.plot(kind='bar',
-                    title='Number of signups').figure.savefig('Plots/signup_counts.pdf')
+    
+    plotting_tools.barplot(signup_counts,
+                            'Number of signups',
+                            'signup_counts.pdf',
+                            storage_config,
+                            s3_client)
 
     ### Plot most popular event signup counts for each job for each year ###
 
@@ -38,9 +60,10 @@ with db.engine.begin() as conn:
                                                                             ('2021-2022','2022-2023'),
                                                                             ('Kasaus', 'Veto', 'Purku'),
                                                                             5)
-
+    
     plotting_tools.outer_index_barplot(signup_counts_per_event,
-                                        'Plots/top_event_signups.pdf',
+                                        'top_event_signups.pdf',
                                         'Most popular events by signup',
+                                        config=storage_config,
+                                        s3_client=s3_client,
                                         nrows=1,ncols=2)
-
