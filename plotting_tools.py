@@ -127,4 +127,4 @@ def s3_upload(local_path: str,
 
     s3_client.upload_file(Filename = local_path,
                             Bucket = bucket_name,
-                            key = full_path_bucket)
+                            Key = full_path_bucket)
