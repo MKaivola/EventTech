@@ -2,8 +2,10 @@ boto3==1.34.141
 botocore==1.34.141
 contourpy==1.2.1
 cycler==0.12.1
+exceptiongroup==1.2.2
 fonttools==4.53.0
 greenlet==3.0.3
+iniconfig==2.0.0
 jmespath==1.0.1
 kiwisolver==1.4.5
 matplotlib==3.9.0
@@ -11,13 +13,16 @@ numpy==2.0.0
 packaging==24.1
 pandas==2.2.2
 pillow==10.3.0
+pluggy==1.5.0
 psycopg2==2.9.9
 pyparsing==3.1.2
+pytest==8.2.2
 python-dateutil==2.9.0.post0
 pytz==2024.1
 s3transfer==0.10.2
 six==1.16.0
 SQLAlchemy==2.0.31
+tomli==2.0.1
 typing_extensions==4.12.2
 tzdata==2024.1
 urllib3==2.2.2
