@@ -17,34 +17,67 @@ def mock_get_periods(monkeypatch):
     
     def mock_return(*args, **kwargs):
         return df
-    
-    monkeypatch.setattr(utils_analysis, "get_periods", mock_return)
+
+    monkeypatch.setattr(utils_analysis, 'get_periods', mock_return)
 
 @pytest.fixture
-def mock_events_per_month(monkeypatch):
-    df = pd.DataFrame({"year": [2021,2022,2023],
-                       "month": [10,6,3],
-                       "event_count": [6,2,1]})
-    
-    def mock_return(*args, **kwargs):
-        return df
-    
-    monkeypatch.setattr(utils_analysis, "get_and_concat_periods", mock_return)
+def mock_utils_analysis_method(monkeypatch):
+
+    def _method(df, method_name):
+        def mock_return(*args, **kwargs):
+            return df
+        monkeypatch.setattr(utils_analysis, method_name, mock_return)
+
+    return _method
 
 @pytest.fixture
 def mock_EventDataBase():
     return EventDataBase("postgresql+psycopg2://user:pass@notahost/test")
 
 def test_monthly_event_counts(mock_get_periods, 
-                              mock_events_per_month,
+                              mock_utils_analysis_method,
                               mock_EventDataBase):
     
-    df_expected = pd.DataFrame(data={'2021-2022': [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 6.0, 0.0, 0.0],
+    df = pd.DataFrame({"year": [2021,2022,2023],
+                    "month": [10,6,3],
+                    "event_count": [6,2,1]})
+    
+    mock_utils_analysis_method(df, 
+                               'get_and_concat_periods')
+
+    
+    df_expected = (pd.DataFrame(data={'2021-2022': [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 6.0, 0.0, 0.0],
                                      '2022-2023': [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0.0 ,0.0]},
-                                index=np.arange(1,13)).rename_axis(index='Month',columns='Fiscal Year')
+                                index=np.arange(1,13))
+                                .rename_axis(index='Month',columns='Fiscal Year'))
     
     df_result = analysis_func.monthly_event_counts(mock_EventDataBase,
                                                    None,
                                                    None)
+    
+    assert df_expected.equals(df_result)
+
+def test_yearly_technician_signups(mock_get_periods,
+                                   mock_utils_analysis_method,
+                                   mock_EventDataBase):
+    
+    df = pd.DataFrame({'name_tech': ['Jane', 'John', 'John', 'Michael', 'Jane'],
+                    'date_event': [pd.Timestamp(year=2021, month=9, day=1),
+                                    pd.Timestamp(year=2021, month=12, day=12),
+                                    pd.Timestamp(year=2022, month=3, day=9),
+                                    pd.Timestamp(year=2022, month=10, day=1),
+                                    pd.Timestamp(year=2023, month=2, day=2)]})
+    
+    mock_utils_analysis_method(df,
+                               'get_and_concat_periods')
+    
+    df_expected = (pd.DataFrame(data={'2021-2022': [1, 2, 0],
+                                     '2022-2023': [1, 0, 1]},
+                                index=['Jane', 'John', 'Michael'])
+                                .rename_axis(index='name_tech', columns='Fiscal Year'))
+    
+    df_result = analysis_func.yearly_technician_signups(mock_EventDataBase,
+                                                        None,
+                                                        None)
     
     assert df_expected.equals(df_result)
