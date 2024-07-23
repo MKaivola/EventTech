@@ -186,7 +186,8 @@ def popular_event_signups_per_job(db: EventDataBase,
     event_signup_counts = (event_signup_count_per_job.pivot(index=['period_name','name_event'],
                                                            columns='name_job',
                                                            values='signup_count')
-                                                           .rename_axis(columns='Job'))
+                                                           .rename_axis(columns='Job')
+                                                           .fillna(0))
     
     # Calculate total signups, group by fiscal year and extract top events
     # by total signup for each fiscal year
