@@ -4,8 +4,8 @@ import pandas as pd
 from sqlalchemy import Select, bindparam, Connection
 from sqlalchemy import func
 
-from Data.db_metadata import EventDataBase
-import utils_analysis
+from data.db_metadata import EventDataBase
+import eventtech.utils_analysis as utils_analysis
 
 def monthly_event_counts(db: EventDataBase,
                          conn: Connection,

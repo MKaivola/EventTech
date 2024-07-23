@@ -2,10 +2,10 @@ import pytest
 import pandas as pd
 import numpy as np
 
-import analysis_func
-import utils_analysis
+import eventtech.analysis_func as analysis_func
+import eventtech.utils_analysis as utils_analysis
 
-from Data.db_metadata import EventDataBase
+from data.db_metadata import EventDataBase
 
 @pytest.fixture
 def mock_get_periods(monkeypatch):

@@ -4,13 +4,13 @@ import os
 from sqlalchemy import URL
 import boto3
 
-from Data.db_metadata import EventDataBase
-import analysis_func
-import plotting_tools
-from Data.config.config import parse_db_config, parse_storage_config
+from data.db_metadata import EventDataBase
+import eventtech.analysis_func as analysis_func
+import eventtech.plotting_tools as plotting_tools
+from config.config import parse_db_config, parse_storage_config
 
 
-config_file_path = str(Path(__file__).parent / 'Data' / 'config' / 'config.ini')
+config_file_path = str(Path(__file__).parent.parent /'config' / 'config.ini')
 conn_string = URL.create(**parse_db_config(config_file_path))
 
 db = EventDataBase(conn_string)

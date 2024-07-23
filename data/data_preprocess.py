@@ -4,8 +4,8 @@ import pandas as pd
 from numpy import nan
 from sqlalchemy import URL
 
-import preprocess_utils as utils
-from db_metadata import EventDataBase
+import data.preprocess_utils as utils
+from data.db_metadata import EventDataBase
 from config.config import parse_db_config
 
 events_2021_2022_filter = {'Kuvaus': ['Peruttiin']}
@@ -13,7 +13,7 @@ events_2021_2022_filter = {'Kuvaus': ['Peruttiin']}
 events_2021_2022_replace_dict = {'Keikka': {'soihtukulkue': nan, 
                                             '(Wappuriehan julistus)': nan}}
 
-events_2021_2022_responses = utils.preprocess_event_csv('Data/Tapahtumat_2021_2022.csv',
+events_2021_2022_responses = utils.preprocess_event_csv('data/Tapahtumat_2021_2022.csv',
                                                         events_2021_2022_filter,
                                                         events_2021_2022_replace_dict)
 
@@ -21,7 +21,7 @@ events_2022_2023_replace_dict = {'Keikka': {'Vetovastuu Kuuralla': nan}}
 
 events_2022_2023_column_rename = {'Mikko K': 'Mikko'}
 
-events_2022_2023_responses = utils.preprocess_event_csv('Data/Tapahtumat_2022_2023.csv',
+events_2022_2023_responses = utils.preprocess_event_csv('data/Tapahtumat_2022_2023.csv',
                                                         replace_dict=events_2022_2023_replace_dict,
                                                         column_rename=events_2022_2023_column_rename)
 
@@ -61,7 +61,7 @@ signups = (signups.merge(events, on='name_event', validate='m:1')
                             'id_name': 'name_id',
                             'id_job': 'job_id'}))
 
-config_file_path = str(Path(__file__).parent / 'config' / 'config.ini')
+config_file_path = str(Path(__file__).parent.parent / 'config' / 'config.ini')
 
 conn_string = URL.create(**parse_db_config(config_file_path))
 

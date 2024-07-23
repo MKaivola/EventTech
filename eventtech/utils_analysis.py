@@ -3,7 +3,7 @@ from collections.abc import Iterable
 import pandas as pd
 from sqlalchemy import Select, Connection
 
-from Data.db_metadata import EventDataBase
+from data.db_metadata import EventDataBase
 
 def get_periods(db: EventDataBase,
                 conn: Connection,
