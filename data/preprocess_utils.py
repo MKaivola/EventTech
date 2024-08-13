@@ -1,6 +1,7 @@
-import pandas as pd
-
+import re
 from collections.abc import Iterable
+
+import pandas as pd
 
 
 def preprocess_event_csv(
@@ -184,3 +185,112 @@ def is_not_event_poll(poll_dict: dict, substrings: Iterable[str]) -> bool:
             return False
 
     return True
+
+
+def extract_unique_answers(poll_dicts: Iterable[dict]) -> Iterable[str]:
+    """
+    Returns all unique answers provided to Telegram polls
+
+    Arguments
+    ---------
+    poll_dicts
+        An iterable containing poll message dictionaries
+    """
+
+    answer_set = set()
+
+    for poll_dict in poll_dicts:
+        for answer in poll_dict["answers"]:
+            answer_set.add(answer["text"])
+
+    return answer_set
+
+
+def answer_to_category_dict(
+    answer_set: set[str], categories: dict[str, str]
+) -> dict[str, str]:
+    """
+    Map answers to given categories based on substring matching
+
+    Arguments
+    ---------
+    answer_set
+        A set of answers to Telegram polls
+    categories
+        A dictionary of substrings to categories to map to
+    """
+
+    answer_cat_dict = {}
+
+    substrings = list(categories.keys())
+
+    for answer in answer_set:
+        answer_clean = answer.lower().strip()
+        substr_index = next(
+            (i for i, v in enumerate(substrings) if v in answer_clean), None
+        )
+
+        match substr_index is None:
+            case True:
+                answer_cat_dict[answer] = None
+            case False:
+                answer_cat_dict[answer] = categories[substrings[substr_index]]
+
+    return answer_cat_dict
+
+
+def map_poll_answers_to_categories(
+    poll_dicts: Iterable[dict], answer_cat_dict: dict[str, str]
+) -> Iterable[dict]:
+    """
+    Map poll dictionaries based on an answer category dictionary
+
+    Arguments
+    ---------
+    poll_dicts
+        An iterable containing poll message dictionaries
+    answer_cat_dict
+        A dictionary containing answer category pairs
+    """
+
+    def _flatten_poll(poll_dict: dict) -> dict:
+        flat_poll = {
+            "poll_date": poll_dict["date"],
+            "event_date": None,
+            "name_event": poll_dict["question"],
+            "Kasaus": 0,
+            "Veto": 0,
+            "Purku": 0,
+        }
+
+        for answer in poll_dict["answers"]:
+            category = answer_cat_dict[answer["text"]]
+
+            if category is not None:
+                flat_poll[category] += answer["voters"]
+
+        return flat_poll
+
+    return [_flatten_poll(poll_dict) for poll_dict in poll_dicts]
+
+
+def update_event_names(flat_polls: Iterable[dict[str, str]]) -> None:
+    """
+    Update event_names by searching for date string using regex
+
+    Arguments
+    ---------
+    flat_polls:
+        An iterable of flattened poll dictionaries
+    """
+
+    for flat_poll in flat_polls:
+        event_name = flat_poll["name_event"]
+
+        m = re.search(r"\d{1,2}\.\d{1,2}", event_name)
+
+        if m is not None:
+            flat_poll["name_event"] = event_name[: m.start()].strip()
+            flat_poll["event_date"] = "".join(
+                (event_name[m.start() : m.end()], ".", flat_poll["poll_date"][:4])
+            )
