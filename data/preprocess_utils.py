@@ -1,4 +1,5 @@
 import re
+import json
 from collections.abc import Iterable
 
 import pandas as pd
@@ -166,7 +167,7 @@ def is_empty_poll(poll_dict: dict) -> bool:
 
 def is_not_event_poll(poll_dict: dict, substrings: Iterable[str]) -> bool:
     """
-    Returns true if the poll is not an event registeration poll
+    Returns true if the poll is not an event registeration poll.
     Heuristically every event registeration poll should have choices
     like "kasaamaan", "ajamaan", "purkamaan" etc.
 
@@ -187,7 +188,7 @@ def is_not_event_poll(poll_dict: dict, substrings: Iterable[str]) -> bool:
     return True
 
 
-def extract_unique_answers(poll_dicts: Iterable[dict]) -> Iterable[str]:
+def extract_unique_answers(poll_dicts: Iterable[dict]) -> set[str]:
     """
     Returns all unique answers provided to Telegram polls
 
@@ -258,10 +259,11 @@ def map_poll_answers_to_categories(
             "poll_date": poll_dict["date"],
             "event_date": None,
             "name_event": poll_dict["question"],
-            "Kasaus": 0,
-            "Veto": 0,
-            "Purku": 0,
         }
+
+        for value in answer_cat_dict.values():
+            if value is not None:
+                flat_poll[value] = 0
 
         for answer in poll_dict["answers"]:
             category = answer_cat_dict[answer["text"]]
@@ -294,3 +296,53 @@ def update_event_names(flat_polls: Iterable[dict[str, str]]) -> None:
             flat_poll["event_date"] = "".join(
                 (event_name[m.start() : m.end()], ".", flat_poll["poll_date"][:4])
             )
+
+
+def extract_flat_event_polls(
+    msgs_json: str,
+    substr_category_dict: dict[str, str],
+    event_iden_substrs: Iterable[str] = None,
+) -> dict[str, str]:
+    """
+    Extract flattened poll dictionaries from Telegram message json data
+
+    Arguments
+    ---------
+    msgs_json
+        Path to the json file
+    substr_category_dict
+        Dictionary mapping substrings to categories
+    event_iden_substrs:
+        Iterable of substrings used to identify event polls
+        If None, all polls are considered event polls
+    """
+    with open(msgs_json) as json_file:
+        general_chat = json.load(json_file)
+
+        messages = general_chat["messages"]
+
+        polls = [
+            extract_poll_results(message) for message in messages if "poll" in message
+        ]
+
+        nonempty_polls = [poll for poll in polls if not is_empty_poll(poll)]
+
+        nonempty_event_polls = nonempty_polls
+
+        if event_iden_substrs is not None:
+            nonempty_event_polls = [
+                poll
+                for poll in nonempty_polls
+                if not is_not_event_poll(poll, substrings=event_iden_substrs)
+            ]
+
+        answer_cat_dict = answer_to_category_dict(
+            extract_unique_answers(nonempty_event_polls),
+            substr_category_dict,
+        )
+
+        flat_polls = map_poll_answers_to_categories(
+            nonempty_event_polls, answer_cat_dict
+        )
+
+        return flat_polls

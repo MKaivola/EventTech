@@ -35,8 +35,13 @@ class TestIsEmptyPoll:
         assert not utils.is_empty_poll(non_empty_poll)
 
 
+@pytest.fixture
+def event_substrings():
+    return ("kasa", "pur", "aja", "vet")
+
+
 class TestIsNotEventPoll:
-    def test_not_event_poll(self):
+    def test_not_event_poll(self, event_substrings):
         not_event_poll = {
             "date": "???",
             "question": "???.",
@@ -49,9 +54,9 @@ class TestIsNotEventPoll:
             ],
         }
 
-        assert utils.is_not_event_poll(not_event_poll)
+        assert utils.is_not_event_poll(not_event_poll, event_substrings)
 
-    def test_event_poll(self):
+    def test_event_poll(self, event_substrings):
         event_poll = {
             "date": "???",
             "question": "???.",
@@ -64,4 +69,4 @@ class TestIsNotEventPoll:
             ],
         }
 
-        assert not utils.is_not_event_poll(event_poll)
+        assert not utils.is_not_event_poll(event_poll, event_substrings)
