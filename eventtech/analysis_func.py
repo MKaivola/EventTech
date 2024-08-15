@@ -9,19 +9,24 @@ import eventtech.utils_analysis as utils_analysis
 
 
 def monthly_event_counts(
-    db: EventDataBase, conn: Connection, period_names: Iterable[str]
+    db: EventDataBase,
+    conn: Connection,
+    period_names: dict[str, set[str]],
+    csv_filepath: str = None,
 ) -> pd.DataFrame:
     """
     Extract monthly event counts for each fiscal period
 
     Arguments
     ---------
-    db:
+    db
         A database object
-    conn:
+    conn
         A db connection object
-    period_names:
-        An iterable containing the period names to extract
+    period_names
+        A dictionary containing (source name, period name iterable) pairs to extract
+    csv_filepath
+        Path to csv file
     """
 
     # Extract year and month component of each event date,
@@ -44,9 +49,8 @@ def monthly_event_counts(
         .group_by(events_sbq.c["year", "month"])
         .order_by(events_sbq.c["year", "month"])
     )
-
     # Select relevant periods
-    periods = utils_analysis.get_periods(db, conn, period_names)
+    periods = utils_analysis.get_periods(db, conn, period_names["db"])
 
     events_per_month = utils_analysis.get_and_concat_periods(
         db, conn, events_per_month_stmt, periods
@@ -75,6 +79,13 @@ def monthly_event_counts(
     event_counts = event_counts.pivot(
         index="Month", columns="period_name", values="event_count"
     ).rename_axis(columns="Fiscal Year")
+
+    if "csv" in period_names and csv_filepath is not None:
+        csv_period_data = utils_analysis.get_periods(db, conn, period_names["csv"])
+
+        event_counts_csv = _monthly_event_counts_csv(csv_filepath, csv_period_data)
+
+        event_counts = pd.concat((event_counts, event_counts_csv), axis=1)
 
     return event_counts
 

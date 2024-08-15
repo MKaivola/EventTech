@@ -31,8 +31,10 @@ else:
 with db.engine.begin() as conn:
     ### Plot how many events for each month and year ###
 
+    fiscal_years = {"db": set(("2021-2022", "2022-2023")), "csv": set(("2023-2024",))}
+
     event_counts = analysis_func.monthly_event_counts(
-        db, conn, ("2021-2022", "2022-2023")
+        db, conn, fiscal_years, "data/Tapahtumat_2023_2024.csv"
     )
 
     plotting_tools.barplot(

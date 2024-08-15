@@ -87,5 +87,11 @@ class EventDataBase:
                         "start_date": pd.Timestamp(year=2022, month=7, day=1),
                         "end_date": pd.Timestamp(year=2023, month=6, day=30),
                     },
+                    {
+                        "id_period": 3,
+                        "period_name": "2023-2024",
+                        "start_date": pd.Timestamp(year=2023, month=7, day=1),
+                        "end_date": pd.Timestamp(year=2024, month=6, day=30),
+                    },
                 ],
             )
