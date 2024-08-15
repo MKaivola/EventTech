@@ -79,6 +79,44 @@ def monthly_event_counts(
     return event_counts
 
 
+def _monthly_event_counts_csv(file: str, period_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extract monthly event counts for each fiscal year from a csv file
+
+    Arguments
+    ---------
+    file
+        Filepath to csv file
+    period_data
+        Dataframe containing period names, start and end dates that are in
+        the csv file
+    """
+    periods = utils_analysis.generate_pd_periods(period_data, "M")
+
+    event_data = pd.read_csv(file)
+
+    event_data = event_data.assign(
+        period=pd.to_datetime(event_data["event_date"], dayfirst=True).dt.to_period("M")
+    )
+
+    event_counts = pd.pivot_table(
+        event_data,
+        index="period",
+        values="event_date",
+        aggfunc="count",
+    )
+
+    event_counts = periods.join(event_counts, on="Period").fillna(0)
+
+    event_counts["Month"] = event_counts["Period"].dt.month
+
+    event_counts = event_counts.pivot(
+        index="Month", columns="period_name", values="event_date"
+    ).rename_axis(columns="Fiscal Year")
+
+    return event_counts
+
+
 def yearly_technician_signups(
     db: EventDataBase, conn: Connection, period_names: Iterable[str]
 ) -> pd.DataFrame:

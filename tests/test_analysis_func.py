@@ -46,26 +46,108 @@ def mock_EventDataBase():
     return EventDataBase("postgresql+psycopg2://user:pass@notahost/test")
 
 
-def test_monthly_event_counts(
-    mock_get_periods, mock_utils_analysis_method, mock_EventDataBase
-):
-    df = pd.DataFrame(
-        {"year": [2021, 2022, 2023], "month": [10, 6, 3], "event_count": [6, 2, 1]}
-    )
+class TestMonthlyEventCounts:
+    def test_monthly_event_counts(
+        self, mock_get_periods, mock_utils_analysis_method, mock_EventDataBase
+    ):
+        df = pd.DataFrame(
+            {"year": [2021, 2022, 2023], "month": [10, 6, 3], "event_count": [6, 2, 1]}
+        )
 
-    mock_utils_analysis_method(df, "get_and_concat_periods")
+        mock_utils_analysis_method(df, "get_and_concat_periods")
 
-    df_expected = pd.DataFrame(
-        data={
-            "2021-2022": [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 6.0, 0.0, 0.0],
-            "2022-2023": [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        },
-        index=np.arange(1, 13),
-    ).rename_axis(index="Month", columns="Fiscal Year")
+        df_expected = pd.DataFrame(
+            data={
+                "2021-2022": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    2.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    6.0,
+                    0.0,
+                    0.0,
+                ],
+                "2022-2023": [
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+            },
+            index=np.arange(1, 13),
+        ).rename_axis(index="Month", columns="Fiscal Year")
 
-    df_result = analysis_func.monthly_event_counts(mock_EventDataBase, None, None)
+        df_result = analysis_func.monthly_event_counts(mock_EventDataBase, None, None)
 
-    assert df_expected.equals(df_result)
+        assert df_expected.equals(df_result)
+
+    def test_monthly_event_counts_csv(self):
+        period_data = pd.DataFrame(
+            {
+                "period_name": ["2022-2023", "2023-2024"],
+                "start_date": [
+                    pd.Timestamp(year=2022, month=7, day=1),
+                    pd.Timestamp(year=2023, month=7, day=1),
+                ],
+                "end_date": [
+                    pd.Timestamp(year=2023, month=6, day=30),
+                    pd.Timestamp(year=2024, month=6, day=30),
+                ],
+            }
+        )
+
+        df_expected = pd.DataFrame(
+            data={
+                "2022-2023": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    2.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                ],
+                "2023-2024": [
+                    1.0,
+                    3.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                ],
+            },
+            index=np.arange(1, 13),
+        ).rename_axis(index="Month", columns="Fiscal Year")
+
+        df_result = analysis_func._monthly_event_counts_csv(
+            "tests/data/event_csv_mock.csv", period_data
+        )
+
+        assert df_expected.equals(df_result)
 
 
 def test_yearly_technician_signups(
