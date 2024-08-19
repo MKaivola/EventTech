@@ -184,9 +184,10 @@ def yearly_technician_signups(
 def popular_event_signups_per_job(
     db: EventDataBase,
     conn: Connection,
-    period: Iterable[str],
+    period_names: dict[str, set[str]],
     jobs: Iterable[str],
     top_n_events: int,
+    csv_filepath: str = None,
 ) -> pd.DataFrame:
     """
     Extract top n events by total signups for each given fiscal year
@@ -197,8 +198,8 @@ def popular_event_signups_per_job(
         A database object
     conn:
         A db connection object
-    period:
-        An iterable containing the period names to extract
+    period_names:
+        A dictionary containing (source name, period name iterable) pairs to extract
     jobs:
         An iterable containing the jobs to consider
     top_n_events:
@@ -223,7 +224,7 @@ def popular_event_signups_per_job(
         .group_by(db.events.c.name_event, db.jobs.c.name_job, db.events.c.date_event)
     )
 
-    periods = utils_analysis.get_periods(db, conn, period)
+    periods = utils_analysis.get_periods(db, conn, period_names["db"])
 
     event_signup_count_per_job = utils_analysis.get_and_concat_periods(
         db, conn, event_signup_count_per_job_stmt, periods
@@ -258,6 +259,17 @@ def popular_event_signups_per_job(
     )
 
     event_signup_counts = event_signup_counts.loc[event_sums.index, :]
+
+    if "csv" in period_names and csv_filepath is not None:
+        csv_period_data = utils_analysis.get_periods(db, conn, period_names["csv"])
+
+        event_signups_csv = _popular_event_signups_per_job_csv(
+            csv_filepath, csv_period_data, jobs, top_n_events
+        )
+
+        event_signup_counts = pd.concat(
+            (event_signup_counts, event_signups_csv), axis=0
+        )
 
     return event_signup_counts
 

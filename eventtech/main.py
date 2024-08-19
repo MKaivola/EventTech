@@ -28,13 +28,15 @@ if "s3_bucket_name" in storage_config:
 else:
     s3_client = None
 
+csv_file_path = "data/Tapahtumat_2023_2024.csv"
+
 with db.engine.begin() as conn:
     ### Plot how many events for each month and year ###
 
     fiscal_years = {"db": set(("2021-2022", "2022-2023")), "csv": set(("2023-2024",))}
 
     event_counts = analysis_func.monthly_event_counts(
-        db, conn, fiscal_years, "data/Tapahtumat_2023_2024.csv"
+        db, conn, fiscal_years, csv_file_path
     )
 
     plotting_tools.barplot(
@@ -57,7 +59,7 @@ with db.engine.begin() as conn:
     ### Plot most popular event signup counts for each job for each year ###
 
     signup_counts_per_event = analysis_func.popular_event_signups_per_job(
-        db, conn, ("2021-2022", "2022-2023"), ("Kasaus", "Veto", "Purku"), 5
+        db, conn, fiscal_years, ("Kasaus", "Veto", "Purku"), 5, csv_file_path
     )
 
     plotting_tools.outer_index_barplot(
@@ -67,5 +69,5 @@ with db.engine.begin() as conn:
         config=storage_config,
         s3_client=s3_client,
         nrows=1,
-        ncols=2,
+        ncols=3,
     )
