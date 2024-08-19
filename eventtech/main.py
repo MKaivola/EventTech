@@ -28,7 +28,11 @@ if "s3_bucket_name" in storage_config:
 else:
     s3_client = None
 
-csv_file_path = "data/Tapahtumat_2023_2024.csv"
+csv_file_path = (
+    os.path.expanduser(storage_config["csv_file_path"])
+    if "csv_file_path" in storage_config
+    else None
+)
 
 with db.engine.begin() as conn:
     ### Plot how many events for each month and year ###
