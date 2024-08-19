@@ -287,45 +287,86 @@ def test_yearly_technician_signups(
     assert df_expected.equals(df_result)
 
 
-def test_popular_event_signups_per_job(
-    mock_get_periods, mock_utils_analysis_method, mock_EventDataBase
-):
-    df = pd.DataFrame(
-        {
-            "name_event": ["Wedding", "Wedding", "Party", "Party", "Show"],
-            "date_event": [
-                pd.Timestamp(year=2021, month=9, day=1),
-                pd.Timestamp(year=2021, month=9, day=1),
-                pd.Timestamp(year=2022, month=3, day=1),
-                pd.Timestamp(year=2022, month=10, day=1),
-                pd.Timestamp(year=2023, month=2, day=1),
-            ],
-            "name_job": ["Kasaus", "Purku", "Kasaus", "Veto", "Purku"],
-            "signup_count": [2, 2, 3, 4, 1],
-        }
-    )
+class TestPopularEventSignupsPerJobs:
+    def test_popular_event_signups_per_job(
+        self, mock_get_periods, mock_utils_analysis_method, mock_EventDataBase
+    ):
+        df = pd.DataFrame(
+            {
+                "name_event": ["Wedding", "Wedding", "Party", "Party", "Show"],
+                "date_event": [
+                    pd.Timestamp(year=2021, month=9, day=1),
+                    pd.Timestamp(year=2021, month=9, day=1),
+                    pd.Timestamp(year=2022, month=3, day=1),
+                    pd.Timestamp(year=2022, month=10, day=1),
+                    pd.Timestamp(year=2023, month=2, day=1),
+                ],
+                "name_job": ["Kasaus", "Purku", "Kasaus", "Veto", "Purku"],
+                "signup_count": [2, 2, 3, 4, 1],
+            }
+        )
 
-    mock_utils_analysis_method(df, "get_and_concat_periods")
+        mock_utils_analysis_method(df, "get_and_concat_periods")
 
-    df_expected = pd.DataFrame(
-        {
-            "Kasaus": [2.0, 3.0, 0.0, 0.0],
-            "Purku": [2.0, 0.0, 0.0, 1.0],
-            "Veto": [0.0, 0.0, 4.0, 0.0],
-        },
-        index=pd.MultiIndex.from_tuples(
-            [
-                ("2021-2022", "Wedding"),
-                ("2021-2022", "Party"),
-                ("2022-2023", "Party"),
-                ("2022-2023", "Show"),
-            ],
-            names=("period_name", "name_event"),
-        ),
-    ).rename_axis(columns="Job")
+        df_expected = pd.DataFrame(
+            {
+                "Kasaus": [2.0, 3.0, 0.0, 0.0],
+                "Purku": [2.0, 0.0, 0.0, 1.0],
+                "Veto": [0.0, 0.0, 4.0, 0.0],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [
+                    ("2021-2022", "Wedding"),
+                    ("2021-2022", "Party"),
+                    ("2022-2023", "Party"),
+                    ("2022-2023", "Show"),
+                ],
+                names=("period_name", "name_event"),
+            ),
+        ).rename_axis(columns="Job")
 
-    df_result = analysis_func.popular_event_signups_per_job(
-        mock_EventDataBase, None, None, [None], 2
-    )
+        df_result = analysis_func.popular_event_signups_per_job(
+            mock_EventDataBase, None, None, [None], 2
+        )
 
-    assert df_expected.equals(df_result)
+        assert df_expected.equals(df_result)
+
+    def test_popular_event_signups_per_job_csv(self):
+        period_data = pd.DataFrame(
+            {
+                "period_name": ["2022-2023", "2023-2024"],
+                "start_date": [
+                    pd.Timestamp(year=2022, month=7, day=1),
+                    pd.Timestamp(year=2023, month=7, day=1),
+                ],
+                "end_date": [
+                    pd.Timestamp(year=2023, month=6, day=30),
+                    pd.Timestamp(year=2024, month=6, day=30),
+                ],
+            }
+        )
+
+        df_expected = pd.DataFrame(
+            {
+                "Kasaus": [9, 7, 7, 10, 10, 10],
+                "Veto": [7, 6, 4, 5, 4, 3],
+                "Purku": [6, 3, 4, 8, 8, 8],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [
+                    ("2022-2023", "Alvarin Approjen Jatkot"),
+                    ("2022-2023", "Neon Rave 2023"),
+                    ("2022-2023", "Sikajuhlat"),
+                    ("2023-2024", "Meioosi_1"),
+                    ("2023-2024", "Meioosi_2"),
+                    ("2023-2024", "Meioosi_3"),
+                ],
+                names=("period_name", "name_event"),
+            ),
+        ).rename_axis(columns="Job")
+
+        df_result = analysis_func._popular_event_signups_per_job_csv(
+            "tests/data/event_csv_mock.csv", period_data, ("Kasaus", "Veto", "Purku"), 3
+        )
+
+        assert df_expected.equals(df_result)
