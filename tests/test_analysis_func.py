@@ -9,7 +9,7 @@ from data.db_metadata import EventDataBase
 
 
 @pytest.fixture
-def mock_get_periods(monkeypatch):
+def mock_get_periods_only_db(monkeypatch):
     df = pd.DataFrame(
         {
             "period_name": ["2021-2022", "2022-2023"],
@@ -28,6 +28,36 @@ def mock_get_periods(monkeypatch):
         return df
 
     monkeypatch.setattr(utils_analysis, "get_periods", mock_return)
+
+
+@pytest.fixture
+def get_periods_db_data():
+    return pd.DataFrame(
+        {
+            "period_name": ["2021-2022", "2022-2023"],
+            "start_date": [
+                pd.Timestamp(year=2021, month=7, day=1),
+                pd.Timestamp(year=2022, month=7, day=1),
+            ],
+            "end_date": [
+                pd.Timestamp(year=2022, month=6, day=30),
+                pd.Timestamp(year=2023, month=6, day=30),
+            ],
+        }
+    )
+
+
+@pytest.fixture
+def get_periods_csv_data():
+    return pd.DataFrame(
+        {
+            "period_name": ["2023-2024"],
+            "start_date": [pd.Timestamp(year=2023, month=7, day=1)],
+            "end_date": [
+                pd.Timestamp(year=2024, month=6, day=30),
+            ],
+        }
+    )
 
 
 @pytest.fixture
@@ -62,7 +92,7 @@ def mock_EventDataBase():
 
 class TestMonthlyEventCounts:
     def test_monthly_event_counts(
-        self, mock_get_periods, mock_utils_analysis_method, mock_EventDataBase
+        self, mock_get_periods_only_db, mock_utils_analysis_method, mock_EventDataBase
     ):
         df = pd.DataFrame(
             {"year": [2021, 2022, 2023], "month": [10, 6, 3], "event_count": [6, 2, 1]}
@@ -168,7 +198,12 @@ class TestMonthlyEventCounts:
         assert df_expected.equals(df_result)
 
     def test_monthly_event_counts_db_and_csv(
-        self, mock_get_periods_data, mock_utils_analysis_method, mock_EventDataBase
+        self,
+        mock_get_periods_data,
+        get_periods_db_data,
+        get_periods_csv_data,
+        mock_utils_analysis_method,
+        mock_EventDataBase,
     ):
         df = pd.DataFrame(
             {"year": [2021, 2022, 2023], "month": [10, 6, 3], "event_count": [6, 2, 1]}
@@ -176,31 +211,7 @@ class TestMonthlyEventCounts:
 
         mock_utils_analysis_method(df, "get_and_concat_periods")
 
-        periods_db = pd.DataFrame(
-            {
-                "period_name": ["2021-2022", "2022-2023"],
-                "start_date": [
-                    pd.Timestamp(year=2021, month=7, day=1),
-                    pd.Timestamp(year=2022, month=7, day=1),
-                ],
-                "end_date": [
-                    pd.Timestamp(year=2022, month=6, day=30),
-                    pd.Timestamp(year=2023, month=6, day=30),
-                ],
-            }
-        )
-
-        periods_csv = pd.DataFrame(
-            {
-                "period_name": ["2023-2024"],
-                "start_date": [pd.Timestamp(year=2023, month=7, day=1)],
-                "end_date": [
-                    pd.Timestamp(year=2024, month=6, day=30),
-                ],
-            }
-        )
-
-        mock_get_periods_data(periods_db, periods_csv)
+        mock_get_periods_data(get_periods_db_data, get_periods_csv_data)
 
         df_expected = pd.DataFrame(
             data={
@@ -260,7 +271,7 @@ class TestMonthlyEventCounts:
 
 
 def test_yearly_technician_signups(
-    mock_get_periods, mock_utils_analysis_method, mock_EventDataBase
+    mock_get_periods_only_db, mock_utils_analysis_method, mock_EventDataBase
 ):
     df = pd.DataFrame(
         {
@@ -289,7 +300,7 @@ def test_yearly_technician_signups(
 
 class TestPopularEventSignupsPerJobs:
     def test_popular_event_signups_per_job(
-        self, mock_get_periods, mock_utils_analysis_method, mock_EventDataBase
+        self, mock_get_periods_only_db, mock_utils_analysis_method, mock_EventDataBase
     ):
         df = pd.DataFrame(
             {
@@ -374,7 +385,12 @@ class TestPopularEventSignupsPerJobs:
         assert df_expected.equals(df_result)
 
     def test_popular_event_signups_per_job_db_and_csv(
-        self, mock_get_periods_data, mock_utils_analysis_method, mock_EventDataBase
+        self,
+        mock_get_periods_data,
+        get_periods_db_data,
+        get_periods_csv_data,
+        mock_utils_analysis_method,
+        mock_EventDataBase,
     ):
         df = pd.DataFrame(
             {
@@ -393,31 +409,7 @@ class TestPopularEventSignupsPerJobs:
 
         mock_utils_analysis_method(df, "get_and_concat_periods")
 
-        periods_db = pd.DataFrame(
-            {
-                "period_name": ["2021-2022", "2022-2023"],
-                "start_date": [
-                    pd.Timestamp(year=2021, month=7, day=1),
-                    pd.Timestamp(year=2022, month=7, day=1),
-                ],
-                "end_date": [
-                    pd.Timestamp(year=2022, month=6, day=30),
-                    pd.Timestamp(year=2023, month=6, day=30),
-                ],
-            }
-        )
-
-        periods_csv = pd.DataFrame(
-            {
-                "period_name": ["2023-2024"],
-                "start_date": [pd.Timestamp(year=2023, month=7, day=1)],
-                "end_date": [
-                    pd.Timestamp(year=2024, month=6, day=30),
-                ],
-            }
-        )
-
-        mock_get_periods_data(periods_db, periods_csv)
+        mock_get_periods_data(get_periods_db_data, get_periods_csv_data)
 
         df_expected = pd.DataFrame(
             {
