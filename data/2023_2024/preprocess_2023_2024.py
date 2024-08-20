@@ -10,7 +10,14 @@ data_path = data_path_2023_2024.parent
 
 flat_polls_general_chat = utils.extract_flat_event_polls(
     str(data_path_2023_2024 / "Tekniikkasektori_2023_2024.json"),
-    {"kasa": "Kasaus", "pur": "Purku", "aja": "Veto", "veto": "Veto"},
+    {
+        "kasa": "Kasaus",
+        "pur": "Purku",
+        "aja": "Veto",
+        "veto": "Veto",
+        "ei": "En pääse",
+        "en": "En pääse",
+    },
     ("kasa", "pur", "aja", "vet"),
 )
 

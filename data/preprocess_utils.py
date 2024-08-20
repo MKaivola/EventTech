@@ -259,6 +259,7 @@ def map_poll_answers_to_categories(
             "poll_date": poll_dict["date"],
             "event_date": None,
             "name_event": poll_dict["question"],
+            "total_voters": poll_dict["total_voters"],
         }
 
         for value in answer_cat_dict.values():
