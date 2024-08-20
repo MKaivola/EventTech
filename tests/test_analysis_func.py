@@ -31,6 +31,28 @@ def mock_get_periods_only_db(monkeypatch):
 
 
 @pytest.fixture
+def mock_get_periods_only_csv(monkeypatch):
+    df = pd.DataFrame(
+        {
+            "period_name": ["2022-2023", "2023-2024"],
+            "start_date": [
+                pd.Timestamp(year=2022, month=7, day=1),
+                pd.Timestamp(year=2023, month=7, day=1),
+            ],
+            "end_date": [
+                pd.Timestamp(year=2023, month=6, day=30),
+                pd.Timestamp(year=2024, month=6, day=30),
+            ],
+        }
+    )
+
+    def mock_return(*args, **kwargs):
+        return df
+
+    monkeypatch.setattr(utils_analysis, "get_periods", mock_return)
+
+
+@pytest.fixture
 def get_periods_db_data():
     return pd.DataFrame(
         {
@@ -442,3 +464,34 @@ class TestPopularEventSignupsPerJobs:
         )
 
         assert df_expected.equals(df_result)
+
+
+def test_event_poll_durations_and_signups(
+    mock_get_periods_only_csv, mock_EventDataBase
+):
+    df_expected = pd.DataFrame(
+        {
+            "poll_day_offset": [2, 11, 10, 2, 23, 1, 7, 7, 13, 27],
+            "active_voters": [9, 7, 8, 6, 8, 6, 5, 10, 10, 10],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [
+                ("2022-2023", "Alvarin Approjen Jatkot"),
+                ("2022-2023", "Neon Rave 2023"),
+                ("2022-2023", "Pääsen Smökrökkiin"),
+                ("2022-2023", "Kiima"),
+                ("2022-2023", "Sikajuhlat"),
+                ("2023-2024", "Huomenna"),
+                ("2023-2024", "Talvipäivän jatkot"),
+                ("2023-2024", "Meioosi_1"),
+                ("2023-2024", "Meioosi_2"),
+                ("2023-2024", "Meioosi_3"),
+            ]
+        ),
+    )
+
+    df_result = analysis_func.event_poll_durations_and_signups(
+        mock_EventDataBase, None, "tests/data/event_csv_mock.csv", None
+    )
+
+    assert df_expected.equals(df_result)

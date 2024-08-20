@@ -316,3 +316,39 @@ def _popular_event_signups_per_job_csv(
     event_signup_counts = event_signup_counts.loc[event_sums.index, :]
 
     return event_signup_counts
+
+
+def event_poll_durations_and_signups(
+    db: EventDataBase, conn: Connection, csv_file: str, period_names: Iterable[str]
+) -> pd.DataFrame:
+    """
+    Extract durations between polls and events and signup amounts
+
+    """
+    periods = utils_analysis.get_periods(db, conn, period_names)
+
+    periods = utils_analysis.generate_pd_periods(periods, "D")
+
+    event_data = pd.read_csv(csv_file)
+
+    event_data["Period"] = pd.to_datetime(
+        event_data["event_date"], dayfirst=True
+    ).dt.to_period("D")
+
+    event_data = event_data.merge(periods, on="Period")
+
+    poll_periods = pd.to_datetime(
+        event_data["poll_date"], format="%Y-%m-%dT%X"
+    ).dt.to_period("D")
+
+    event_data["poll_day_offset"] = (event_data["Period"] - poll_periods).apply(
+        lambda x: x.n
+    )
+
+    event_data["active_voters"] = event_data["total_voters"] - event_data["En pääse"]
+
+    poll_offsets_voters = event_data.set_index(["period_name", "name_event"]).loc[
+        :, ("poll_day_offset", "active_voters")
+    ]
+
+    return poll_offsets_voters
