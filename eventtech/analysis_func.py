@@ -181,16 +181,14 @@ def yearly_technician_signups(
     return signup_counts
 
 
-def popular_event_signups_per_job(
+def event_signups_per_job(
     db: EventDataBase,
     conn: Connection,
     period_names: dict[str, set[str]],
     jobs: Iterable[str],
-    top_n_events: int,
-    csv_filepath: str = None,
-) -> pd.DataFrame:
+):
     """
-    Extract top n events by total signups for each given fiscal year
+    Extract event signups for each job for each given fiscal year
 
     Arguments
     ---------
@@ -202,8 +200,6 @@ def popular_event_signups_per_job(
         A dictionary containing (source name, period name iterable) pairs to extract
     jobs:
         An iterable containing the jobs to consider
-    top_n_events:
-        An integer specifying how many top events to return
     """
 
     # Calculate signups for each event and given jobs in a given fiscal year
@@ -239,6 +235,64 @@ def popular_event_signups_per_job(
     # Merge fiscal year information to events
     event_signup_count_per_job = event_signup_count_per_job.merge(periods, on="Period")
 
+    return event_signup_count_per_job
+
+
+def _event_signups_per_job_csv(file: str, period_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Get event signups per job from a csv file
+
+    Arguments
+    ---------
+    file
+        Path to csv file
+    period_data
+        Dataframe containing period names, start and end dates that are in
+        the csv file
+    """
+
+    periods = utils_analysis.generate_pd_periods(period_data, "D")
+
+    event_signup_counts = pd.read_csv(file)
+
+    event_signup_counts["Period"] = pd.to_datetime(
+        event_signup_counts["event_date"], dayfirst=True
+    ).dt.to_period("D")
+
+    event_signup_counts = event_signup_counts.merge(periods, on="Period")
+
+    return event_signup_counts
+
+
+def popular_event_signups_per_job(
+    db: EventDataBase,
+    conn: Connection,
+    period_names: dict[str, set[str]],
+    jobs: Iterable[str],
+    top_n_events: int,
+    csv_filepath: str = None,
+) -> pd.DataFrame:
+    """
+    Extract top n events by total signups for each given fiscal year
+
+    Arguments
+    ---------
+    db:
+        A database object
+    conn:
+        A db connection object
+    period_names:
+        A dictionary containing (source name, period name iterable) pairs to extract
+    jobs:
+        An iterable containing the jobs to consider
+    top_n_events:
+        An integer specifying how many top events to return
+    csv_filepath:
+        Path to csv file
+    """
+
+    event_signup_count_per_job = event_signups_per_job(db, conn, period_names, jobs)
+
     # Use MultiIndex to represent each event
     event_signup_counts = (
         event_signup_count_per_job.pivot(
@@ -253,9 +307,11 @@ def popular_event_signups_per_job(
     if "csv" in period_names and csv_filepath is not None:
         csv_period_data = utils_analysis.get_periods(db, conn, period_names["csv"])
 
-        event_signups_csv = _event_signups_per_job_csv(
-            csv_filepath, csv_period_data, jobs
-        )
+        event_signups_csv = _event_signups_per_job_csv(csv_filepath, csv_period_data)
+
+        event_signups_csv = event_signups_csv.set_index(
+            ["period_name", "name_event"]
+        ).loc[:, jobs]
 
         event_signup_counts = pd.concat(
             (event_signup_counts, event_signups_csv), axis=0
@@ -270,40 +326,6 @@ def popular_event_signups_per_job(
     )
 
     event_signup_counts = event_signup_counts.loc[event_sums.index, :]
-
-    return event_signup_counts
-
-
-def _event_signups_per_job_csv(
-    file: str, period_data: pd.DataFrame, jobs: Iterable[str]
-) -> pd.DataFrame:
-    """
-    Get event signups per job from a csv file
-
-    Arguments
-    ---------
-    file
-        Path to csv file
-    period_data
-        Dataframe containing period names, start and end dates that are in
-        the csv file
-    jobs
-        Iterable containing jobs to consider
-    """
-
-    periods = utils_analysis.generate_pd_periods(period_data, "D")
-
-    event_signup_counts = pd.read_csv(file)
-
-    event_signup_counts["Period"] = pd.to_datetime(
-        event_signup_counts["event_date"], dayfirst=True
-    ).dt.to_period("D")
-
-    event_signup_counts = (
-        event_signup_counts.merge(periods, on="Period")
-        .set_index(["period_name", "name_event"])
-        .loc[:, jobs]
-    )
 
     return event_signup_counts
 
