@@ -39,6 +39,8 @@ with db.engine.begin() as conn:
 
     fiscal_years = {"db": set(("2021-2022", "2022-2023")), "csv": set(("2023-2024",))}
 
+    standard_jobs = ("Kasaus", "Veto", "Purku")
+
     event_counts = analysis_func.monthly_event_counts(
         db, conn, fiscal_years, csv_file_path
     )
@@ -62,9 +64,11 @@ with db.engine.begin() as conn:
 
     ### Plot most popular event signup counts for each job for each year ###
 
-    signup_counts_per_event = analysis_func.popular_event_signups_per_job(
-        db, conn, fiscal_years, ("Kasaus", "Veto", "Purku"), 5, csv_file_path
+    EventSignUps = analysis_func.EventSignups(
+        db, conn, fiscal_years, standard_jobs, csv_file_path
     )
+
+    signup_counts_per_event = EventSignUps.popular_event_signups_per_job(5)
 
     plotting_tools.outer_index_barplot(
         signup_counts_per_event,
@@ -73,5 +77,5 @@ with db.engine.begin() as conn:
         config=storage_config,
         s3_client=s3_client,
         nrows=1,
-        ncols=3,
+        ncols=signup_counts_per_event.index.get_level_values(0).unique().__len__(),
     )

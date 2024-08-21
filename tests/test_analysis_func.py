@@ -112,6 +112,71 @@ def mock_EventDataBase():
     return EventDataBase("postgresql+psycopg2://user:pass@notahost/test")
 
 
+@pytest.fixture
+def mock_EventSignups_db_only(
+    mock_get_periods_only_db, mock_EventDataBase, mock_utils_analysis_method
+):
+    df = pd.DataFrame(
+        {
+            "name_event": ["Wedding", "Wedding", "Party", "Party", "Show"],
+            "date_event": [
+                pd.Timestamp(year=2021, month=9, day=1),
+                pd.Timestamp(year=2021, month=9, day=1),
+                pd.Timestamp(year=2022, month=3, day=1),
+                pd.Timestamp(year=2022, month=10, day=1),
+                pd.Timestamp(year=2023, month=2, day=1),
+            ],
+            "name_job": ["Kasaus", "Purku", "Kasaus", "Veto", "Purku"],
+            "signup_count": [2, 2, 3, 4, 1],
+        }
+    )
+
+    mock_utils_analysis_method(df, "get_and_concat_periods")
+
+    return analysis_func.EventSignups(
+        mock_EventDataBase,
+        None,
+        {"db": set(("2021-2022", "2022-2023"))},
+        [None],
+    )
+
+
+@pytest.fixture
+def mock_EventSignups_db_and_csv(
+    mock_get_periods_data,
+    get_periods_db_data,
+    get_periods_csv_data,
+    mock_EventDataBase,
+    mock_utils_analysis_method,
+):
+    df = pd.DataFrame(
+        {
+            "name_event": ["Wedding", "Wedding", "Party", "Party", "Show"],
+            "date_event": [
+                pd.Timestamp(year=2021, month=9, day=1),
+                pd.Timestamp(year=2021, month=9, day=1),
+                pd.Timestamp(year=2022, month=3, day=1),
+                pd.Timestamp(year=2022, month=10, day=1),
+                pd.Timestamp(year=2023, month=2, day=1),
+            ],
+            "name_job": ["Kasaus", "Purku", "Kasaus", "Veto", "Purku"],
+            "signup_count": [2, 2, 3, 4, 1],
+        }
+    )
+
+    mock_utils_analysis_method(df, "get_and_concat_periods")
+
+    mock_get_periods_data(get_periods_db_data, get_periods_csv_data)
+
+    return analysis_func.EventSignups(
+        mock_EventDataBase,
+        None,
+        {"db": "db", "csv": "csv"},
+        ("Kasaus", "Veto", "Purku"),
+        "tests/data/event_csv_mock.csv",
+    )
+
+
 class TestMonthlyEventCounts:
     def test_monthly_event_counts(
         self, mock_get_periods_only_db, mock_utils_analysis_method, mock_EventDataBase
@@ -320,27 +385,8 @@ def test_yearly_technician_signups(
     assert df_expected.equals(df_result)
 
 
-class TestPopularEventSignupsPerJobs:
-    def test_popular_event_signups_per_job(
-        self, mock_get_periods_only_db, mock_utils_analysis_method, mock_EventDataBase
-    ):
-        df = pd.DataFrame(
-            {
-                "name_event": ["Wedding", "Wedding", "Party", "Party", "Show"],
-                "date_event": [
-                    pd.Timestamp(year=2021, month=9, day=1),
-                    pd.Timestamp(year=2021, month=9, day=1),
-                    pd.Timestamp(year=2022, month=3, day=1),
-                    pd.Timestamp(year=2022, month=10, day=1),
-                    pd.Timestamp(year=2023, month=2, day=1),
-                ],
-                "name_job": ["Kasaus", "Purku", "Kasaus", "Veto", "Purku"],
-                "signup_count": [2, 2, 3, 4, 1],
-            }
-        )
-
-        mock_utils_analysis_method(df, "get_and_concat_periods")
-
+class TestEventSignups:
+    def test_popular_event_signups_per_job(self, mock_EventSignups_db_only):
         df_expected = pd.DataFrame(
             {
                 "Kasaus": [2.0, 3.0, 0.0, 0.0],
@@ -358,41 +404,13 @@ class TestPopularEventSignupsPerJobs:
             ),
         ).rename_axis(columns="Job")
 
-        periods_placeholder = {"db": set(("2021-2022", "2022-2023"))}
-
-        df_result = analysis_func.popular_event_signups_per_job(
-            mock_EventDataBase, None, periods_placeholder, [None], 2
-        )
+        df_result = mock_EventSignups_db_only.popular_event_signups_per_job(2)
 
         assert df_expected.equals(df_result)
 
     def test_popular_event_signups_per_job_db_and_csv(
-        self,
-        mock_get_periods_data,
-        get_periods_db_data,
-        get_periods_csv_data,
-        mock_utils_analysis_method,
-        mock_EventDataBase,
+        self, mock_EventSignups_db_and_csv
     ):
-        df = pd.DataFrame(
-            {
-                "name_event": ["Wedding", "Wedding", "Party", "Party", "Show"],
-                "date_event": [
-                    pd.Timestamp(year=2021, month=9, day=1),
-                    pd.Timestamp(year=2021, month=9, day=1),
-                    pd.Timestamp(year=2022, month=3, day=1),
-                    pd.Timestamp(year=2022, month=10, day=1),
-                    pd.Timestamp(year=2023, month=2, day=1),
-                ],
-                "name_job": ["Kasaus", "Purku", "Kasaus", "Veto", "Purku"],
-                "signup_count": [2, 2, 3, 4, 1],
-            }
-        )
-
-        mock_utils_analysis_method(df, "get_and_concat_periods")
-
-        mock_get_periods_data(get_periods_db_data, get_periods_csv_data)
-
         df_expected = pd.DataFrame(
             {
                 "Kasaus": [2.0, 3.0, 0.0, 0.0, 10.0, 10.0],
@@ -412,16 +430,7 @@ class TestPopularEventSignupsPerJobs:
             ),
         ).rename_axis(columns="Job")
 
-        period_datasource = {"db": "db", "csv": "csv"}
-
-        df_result = analysis_func.popular_event_signups_per_job(
-            mock_EventDataBase,
-            None,
-            period_datasource,
-            ("Kasaus", "Veto", "Purku"),
-            2,
-            "tests/data/event_csv_mock.csv",
-        )
+        df_result = mock_EventSignups_db_and_csv.popular_event_signups_per_job(2)
 
         assert df_expected.equals(df_result)
 

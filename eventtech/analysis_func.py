@@ -181,153 +181,165 @@ def yearly_technician_signups(
     return signup_counts
 
 
-def event_signups_per_job(
-    db: EventDataBase,
-    conn: Connection,
-    period_names: dict[str, set[str]],
-    jobs: Iterable[str],
-):
+class EventSignups:
     """
-    Extract event signups for each job for each given fiscal year
-
-    Arguments
-    ---------
-    db:
-        A database object
-    conn:
-        A db connection object
-    period_names:
-        A dictionary containing (source name, period name iterable) pairs to extract
-    jobs:
-        An iterable containing the jobs to consider
+    Class representing event signup data extracted from database and csv files
     """
 
-    # Calculate signups for each event and given jobs in a given fiscal year
-    event_signup_count_per_job_stmt = (
-        Select(
-            db.events.c.name_event,
-            db.events.c.date_event,
-            db.jobs.c.name_job,
-            func.count().label("signup_count"),
-        )
-        .join_from(db.events, db.signups, db.events.c.id_event == db.signups.c.event_id)
-        .join(db.jobs, db.jobs.c.id_job == db.signups.c.job_id)
-        .where(
-            bindparam("start_date") <= db.events.c.date_event,
-            db.events.c.date_event <= bindparam("end_date"),
-            db.jobs.c.name_job.in_(jobs),
-        )
-        .group_by(db.events.c.name_event, db.jobs.c.name_job, db.events.c.date_event)
-    )
+    def __init__(
+        self,
+        db: EventDataBase,
+        conn: Connection,
+        period_names: dict[str, set[str]],
+        jobs: Iterable[str],
+        csv_file: str = None,
+    ) -> None:
+        self.jobs = jobs
 
-    periods = utils_analysis.get_periods(db, conn, period_names["db"])
+        self._db_data = self._event_signups_per_job(db, conn, period_names["db"], jobs)
 
-    event_signup_count_per_job = utils_analysis.get_and_concat_periods(
-        db, conn, event_signup_count_per_job_stmt, periods
-    )
+        if csv_file is not None:
+            self._csv_data = self._event_signups_per_job_csv(
+                db, conn, csv_file, period_names["csv"]
+            )
+        else:
+            self._csv_data = None
 
-    periods = utils_analysis.generate_pd_periods(periods, "D")
+    def _event_signups_per_job(
+        self,
+        db: EventDataBase,
+        conn: Connection,
+        period_names: set[str],
+        jobs: Iterable[str],
+    ):
+        """
+        Extract event signups for each job for each given fiscal year
 
-    event_signup_count_per_job["Period"] = pd.to_datetime(
-        event_signup_count_per_job["date_event"]
-    ).dt.to_period("D")
+        Arguments
+        ---------
+        db:
+            A database object
+        conn:
+            A db connection object
+        period_names:
+            A set containing periods to extract from the database
+        jobs:
+            An iterable containing the jobs to consider
+        """
 
-    # Merge fiscal year information to events
-    event_signup_count_per_job = event_signup_count_per_job.merge(periods, on="Period")
-
-    return event_signup_count_per_job
-
-
-def _event_signups_per_job_csv(file: str, period_data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Get event signups per job from a csv file
-
-    Arguments
-    ---------
-    file
-        Path to csv file
-    period_data
-        Dataframe containing period names, start and end dates that are in
-        the csv file
-    """
-
-    periods = utils_analysis.generate_pd_periods(period_data, "D")
-
-    event_signup_counts = pd.read_csv(file)
-
-    event_signup_counts["Period"] = pd.to_datetime(
-        event_signup_counts["event_date"], dayfirst=True
-    ).dt.to_period("D")
-
-    event_signup_counts = event_signup_counts.merge(periods, on="Period")
-
-    return event_signup_counts
-
-
-def popular_event_signups_per_job(
-    db: EventDataBase,
-    conn: Connection,
-    period_names: dict[str, set[str]],
-    jobs: Iterable[str],
-    top_n_events: int,
-    csv_filepath: str = None,
-) -> pd.DataFrame:
-    """
-    Extract top n events by total signups for each given fiscal year
-
-    Arguments
-    ---------
-    db:
-        A database object
-    conn:
-        A db connection object
-    period_names:
-        A dictionary containing (source name, period name iterable) pairs to extract
-    jobs:
-        An iterable containing the jobs to consider
-    top_n_events:
-        An integer specifying how many top events to return
-    csv_filepath:
-        Path to csv file
-    """
-
-    event_signup_count_per_job = event_signups_per_job(db, conn, period_names, jobs)
-
-    # Use MultiIndex to represent each event
-    event_signup_counts = (
-        event_signup_count_per_job.pivot(
-            index=["period_name", "name_event"],
-            columns="name_job",
-            values="signup_count",
-        )
-        .rename_axis(columns="Job")
-        .fillna(0)
-    )
-
-    if "csv" in period_names and csv_filepath is not None:
-        csv_period_data = utils_analysis.get_periods(db, conn, period_names["csv"])
-
-        event_signups_csv = _event_signups_per_job_csv(csv_filepath, csv_period_data)
-
-        event_signups_csv = event_signups_csv.set_index(
-            ["period_name", "name_event"]
-        ).loc[:, jobs]
-
-        event_signup_counts = pd.concat(
-            (event_signup_counts, event_signups_csv), axis=0
+        # Calculate signups for each event and given jobs in a given fiscal year
+        event_signup_count_per_job_stmt = (
+            Select(
+                db.events.c.name_event,
+                db.events.c.date_event,
+                db.jobs.c.name_job,
+                func.count().label("signup_count"),
+            )
+            .join_from(
+                db.events, db.signups, db.events.c.id_event == db.signups.c.event_id
+            )
+            .join(db.jobs, db.jobs.c.id_job == db.signups.c.job_id)
+            .where(
+                bindparam("start_date") <= db.events.c.date_event,
+                db.events.c.date_event <= bindparam("end_date"),
+                db.jobs.c.name_job.in_(jobs),
+            )
+            .group_by(
+                db.events.c.name_event, db.jobs.c.name_job, db.events.c.date_event
+            )
         )
 
-    # Calculate total signups, group by fiscal year and extract top events
-    # by total signup for each fiscal year
-    event_sums = (
-        event_signup_counts.sum(axis=1)
-        .groupby(level="period_name", group_keys=False)
-        .nlargest(top_n_events)
-    )
+        periods = utils_analysis.get_periods(db, conn, period_names)
 
-    event_signup_counts = event_signup_counts.loc[event_sums.index, :]
+        event_signup_count_per_job = utils_analysis.get_and_concat_periods(
+            db, conn, event_signup_count_per_job_stmt, periods
+        )
 
-    return event_signup_counts
+        periods = utils_analysis.generate_pd_periods(periods, "D")
+
+        event_signup_count_per_job["Period"] = pd.to_datetime(
+            event_signup_count_per_job["date_event"]
+        ).dt.to_period("D")
+
+        # Merge fiscal year information to events
+        event_signup_count_per_job = event_signup_count_per_job.merge(
+            periods, on="Period"
+        )
+
+        return event_signup_count_per_job
+
+    def _event_signups_per_job_csv(
+        self, db: EventDataBase, conn: Connection, file: str, period_names: set[str]
+    ) -> pd.DataFrame:
+        """
+        Get event signups per job from a csv file
+
+        Arguments
+        ---------
+        file
+            Path to csv file
+        period_data
+            Dataframe containing period names, start and end dates that are in
+            the csv file
+        """
+
+        period_data = utils_analysis.get_periods(db, conn, period_names)
+
+        periods = utils_analysis.generate_pd_periods(period_data, "D")
+
+        event_signup_counts = pd.read_csv(file)
+
+        event_signup_counts["Period"] = pd.to_datetime(
+            event_signup_counts["event_date"], dayfirst=True
+        ).dt.to_period("D")
+
+        event_signup_counts = event_signup_counts.merge(periods, on="Period")
+
+        return event_signup_counts
+
+    def popular_event_signups_per_job(
+        self,
+        top_n_events: int,
+    ) -> pd.DataFrame:
+        """
+        Extract top n events by total signups for each given fiscal year
+
+        Arguments
+        ---------
+        top_n_events:
+            An integer specifying how many top events to return
+        """
+        # Use MultiIndex to represent each event
+        event_signup_counts = (
+            self._db_data.pivot(
+                index=["period_name", "name_event"],
+                columns="name_job",
+                values="signup_count",
+            )
+            .rename_axis(columns="Job")
+            .fillna(0)
+        )
+
+        if self._csv_data is not None:
+            event_signups_csv = self._csv_data.set_index(
+                ["period_name", "name_event"]
+            ).loc[:, self.jobs]
+
+            event_signup_counts = pd.concat(
+                (event_signup_counts, event_signups_csv), axis=0
+            )
+
+        # Calculate total signups, group by fiscal year and extract top events
+        # by total signup for each fiscal year
+        event_sums = (
+            event_signup_counts.sum(axis=1)
+            .groupby(level="period_name", group_keys=False)
+            .nlargest(top_n_events)
+        )
+
+        event_signup_counts = event_signup_counts.loc[event_sums.index, :]
+
+        return event_signup_counts
 
 
 def event_poll_durations_and_signups(
@@ -357,7 +369,7 @@ def event_poll_durations_and_signups(
         lambda x: x.n
     )
 
-    event_data["active_voters"] = event_data["total_voters"] - event_data["En pääse"]
+    event_data["active_voters"] = event_data["signup_count"] - event_data["En pääse"]
 
     poll_offsets_voters = event_data.set_index(["period_name", "name_event"]).loc[
         :, ("poll_day_offset", "active_voters")
