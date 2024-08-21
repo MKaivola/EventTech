@@ -250,6 +250,17 @@ def popular_event_signups_per_job(
         .fillna(0)
     )
 
+    if "csv" in period_names and csv_filepath is not None:
+        csv_period_data = utils_analysis.get_periods(db, conn, period_names["csv"])
+
+        event_signups_csv = _event_signups_per_job_csv(
+            csv_filepath, csv_period_data, jobs
+        )
+
+        event_signup_counts = pd.concat(
+            (event_signup_counts, event_signups_csv), axis=0
+        )
+
     # Calculate total signups, group by fiscal year and extract top events
     # by total signup for each fiscal year
     event_sums = (
@@ -260,37 +271,24 @@ def popular_event_signups_per_job(
 
     event_signup_counts = event_signup_counts.loc[event_sums.index, :]
 
-    if "csv" in period_names and csv_filepath is not None:
-        csv_period_data = utils_analysis.get_periods(db, conn, period_names["csv"])
-
-        event_signups_csv = _popular_event_signups_per_job_csv(
-            csv_filepath, csv_period_data, jobs, top_n_events
-        )
-
-        event_signup_counts = pd.concat(
-            (event_signup_counts, event_signups_csv), axis=0
-        )
-
     return event_signup_counts
 
 
-def _popular_event_signups_per_job_csv(
-    file: str, period_data: pd.DataFrame, jobs: Iterable[str], top_n_events: int
+def _event_signups_per_job_csv(
+    file: str, period_data: pd.DataFrame, jobs: Iterable[str]
 ) -> pd.DataFrame:
     """
-    Extract top n events by total signups for each given fiscal year from a csv file
+    Get event signups per job from a csv file
 
     Arguments
     ---------
-    str:
-        Filepath to csv file
-    period_data:
+    file
+        Path to csv file
+    period_data
         Dataframe containing period names, start and end dates that are in
         the csv file
-    jobs:
-        An iterable containing the jobs to consider
-    top_n_events:
-        An integer specifying how many top events to return
+    jobs
+        Iterable containing jobs to consider
     """
 
     periods = utils_analysis.generate_pd_periods(period_data, "D")
@@ -306,14 +304,6 @@ def _popular_event_signups_per_job_csv(
         .set_index(["period_name", "name_event"])
         .loc[:, jobs]
     )
-
-    event_sums = (
-        event_signup_counts.sum(axis=1)
-        .groupby(level="period_name", group_keys=False)
-        .nlargest(top_n_events)
-    )
-
-    event_signup_counts = event_signup_counts.loc[event_sums.index, :]
 
     return event_signup_counts
 
