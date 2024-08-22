@@ -3,6 +3,7 @@ from collections.abc import Iterable
 import pandas as pd
 from sqlalchemy import Select, bindparam, Connection
 from sqlalchemy import func
+import numpy as np
 
 from data.db_metadata import EventDataBase
 import eventtech.utils_analysis as utils_analysis
@@ -368,6 +369,26 @@ class EventSignups:
         event_signup_counts = event_signup_counts.loc[event_sums.index, :]
 
         return event_signup_counts
+
+    def event_signup_medians_per_month(self) -> pd.DataFrame:
+        """
+        Compute event signup medians over jobs and months for each fiscal year
+        """
+        median_per_month = self.data.assign(
+            month=self.data["Period"].dt.month
+        ).pivot_table(
+            index="month",
+            columns="period_name",
+            values="signup_count",
+            aggfunc="median",
+            fill_value=0.0,
+        )
+
+        median_per_month = (
+            pd.DataFrame(index=np.arange(1, 13)).join(median_per_month).fillna(0.0)
+        ).rename_axis(index="Month", columns="Fiscal Year")
+
+        return median_per_month
 
 
 def event_poll_durations_and_signups(
