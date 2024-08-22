@@ -62,12 +62,13 @@ with db.engine.begin() as conn:
         s3_client,
     )
 
-    ### Plot most popular event signup counts for each job for each year ###
+    ### Analysis of event signup data
 
     EventSignUps = analysis_func.EventSignups(
         db, conn, fiscal_years, standard_jobs, csv_file_path
     )
 
+    ### Plot most popular event signup counts for each job for each year ###
     signup_counts_per_event = EventSignUps.popular_event_signups_per_job(5)
 
     plotting_tools.outer_index_barplot(

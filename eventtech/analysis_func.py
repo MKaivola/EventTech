@@ -107,13 +107,13 @@ def _monthly_event_counts_csv(file: str, period_data: pd.DataFrame) -> pd.DataFr
     event_data = pd.read_csv(file)
 
     event_data = event_data.assign(
-        period=pd.to_datetime(event_data["event_date"], dayfirst=True).dt.to_period("M")
+        period=pd.to_datetime(event_data["date_event"], dayfirst=True).dt.to_period("M")
     )
 
     event_counts = pd.pivot_table(
         event_data,
         index="period",
-        values="event_date",
+        values="date_event",
         aggfunc="count",
     )
 
@@ -122,7 +122,7 @@ def _monthly_event_counts_csv(file: str, period_data: pd.DataFrame) -> pd.DataFr
     event_counts["Month"] = event_counts["Period"].dt.month
 
     event_counts = event_counts.pivot(
-        index="Month", columns="period_name", values="event_date"
+        index="Month", columns="period_name", values="date_event"
     ).rename_axis(columns="Fiscal Year")
 
     return event_counts
@@ -184,6 +184,19 @@ def yearly_technician_signups(
 class EventSignups:
     """
     Class representing event signup data extracted from database and csv files
+
+    Arguments
+    ---------
+    db
+        Database object
+    conn
+        Database connection
+    period_names
+        A dictionary containing (source name, period name iterable) pairs to extract
+    jobs
+        Iterable containing jobs to consider
+    csv_file
+        Optional csv file path
     """
 
     def __init__(
@@ -194,16 +207,15 @@ class EventSignups:
         jobs: Iterable[str],
         csv_file: str = None,
     ) -> None:
-        self.jobs = jobs
+        _db_data = self._event_signups_per_job(db, conn, period_names["db"], jobs)
 
-        self._db_data = self._event_signups_per_job(db, conn, period_names["db"], jobs)
+        self.data = _db_data
 
         if csv_file is not None:
-            self._csv_data = self._event_signups_per_job_csv(
-                db, conn, csv_file, period_names["csv"]
+            csv_data = self._event_signups_per_job_csv(
+                db, conn, csv_file, period_names["csv"], jobs
             )
-        else:
-            self._csv_data = None
+            self.data = pd.concat((_db_data, csv_data), axis=0)
 
     def _event_signups_per_job(
         self,
@@ -264,12 +276,17 @@ class EventSignups:
         # Merge fiscal year information to events
         event_signup_count_per_job = event_signup_count_per_job.merge(
             periods, on="Period"
-        )
+        ).drop(columns="date_event")
 
         return event_signup_count_per_job
 
     def _event_signups_per_job_csv(
-        self, db: EventDataBase, conn: Connection, file: str, period_names: set[str]
+        self,
+        db: EventDataBase,
+        conn: Connection,
+        file: str,
+        period_names: set[str],
+        jobs: Iterable[str],
     ) -> pd.DataFrame:
         """
         Get event signups per job from a csv file
@@ -290,10 +307,30 @@ class EventSignups:
         event_signup_counts = pd.read_csv(file)
 
         event_signup_counts["Period"] = pd.to_datetime(
-            event_signup_counts["event_date"], dayfirst=True
+            event_signup_counts["date_event"], dayfirst=True
         ).dt.to_period("D")
 
         event_signup_counts = event_signup_counts.merge(periods, on="Period")
+
+        # Select columns that are in the database data
+        event_signup_counts = event_signup_counts.loc[
+            :,
+            (
+                "name_event",
+                "Purku",
+                "Veto",
+                "Kasaus",
+                "Period",
+                "period_name",
+            ),
+        ]
+        # Melt the dataframe to conform with the database counterpart
+        event_signup_counts = event_signup_counts.melt(
+            id_vars=["name_event", "Period", "period_name"],
+            value_vars=jobs,
+            var_name="name_job",
+            value_name="signup_count",
+        )
 
         return event_signup_counts
 
@@ -311,7 +348,7 @@ class EventSignups:
         """
         # Use MultiIndex to represent each event
         event_signup_counts = (
-            self._db_data.pivot(
+            self.data.pivot(
                 index=["period_name", "name_event"],
                 columns="name_job",
                 values="signup_count",
@@ -319,15 +356,6 @@ class EventSignups:
             .rename_axis(columns="Job")
             .fillna(0)
         )
-
-        if self._csv_data is not None:
-            event_signups_csv = self._csv_data.set_index(
-                ["period_name", "name_event"]
-            ).loc[:, self.jobs]
-
-            event_signup_counts = pd.concat(
-                (event_signup_counts, event_signups_csv), axis=0
-            )
 
         # Calculate total signups, group by fiscal year and extract top events
         # by total signup for each fiscal year
@@ -356,7 +384,7 @@ def event_poll_durations_and_signups(
     event_data = pd.read_csv(csv_file)
 
     event_data["Period"] = pd.to_datetime(
-        event_data["event_date"], dayfirst=True
+        event_data["date_event"], dayfirst=True
     ).dt.to_period("D")
 
     event_data = event_data.merge(periods, on="Period")

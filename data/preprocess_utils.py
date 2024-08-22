@@ -257,7 +257,7 @@ def map_poll_answers_to_categories(
     def _flatten_poll(poll_dict: dict) -> dict:
         flat_poll = {
             "poll_date": poll_dict["date"],
-            "event_date": None,
+            "date_event": None,
             "name_event": poll_dict["question"],
             "signup_count": poll_dict["total_voters"],
         }
@@ -294,7 +294,7 @@ def update_event_names(flat_polls: Iterable[dict[str, str]]) -> None:
 
         if m is not None:
             flat_poll["name_event"] = event_name[: m.start()].strip()
-            flat_poll["event_date"] = "".join(
+            flat_poll["date_event"] = "".join(
                 (event_name[m.start() : m.end()], ".", flat_poll["poll_date"][:4])
             )
 
