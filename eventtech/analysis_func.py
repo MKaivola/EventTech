@@ -207,21 +207,24 @@ class EventSignups:
         jobs: Iterable[str],
         csv_file: str = None,
     ) -> None:
-        _db_data = self._event_signups_per_job(db, conn, period_names["db"], jobs)
+        period_db = utils_analysis.get_periods(db, conn, period_names["db"])
 
-        self.data = _db_data
+        db_data = self._event_signups_per_job(db, conn, period_db, jobs)
+
+        self.data = db_data
+        self.periods = period_db
 
         if csv_file is not None:
-            csv_data = self._event_signups_per_job_csv(
-                db, conn, csv_file, period_names["csv"], jobs
-            )
-            self.data = pd.concat((_db_data, csv_data), axis=0)
+            period_csv = utils_analysis.get_periods(db, conn, period_names["csv"])
+            csv_data = self._event_signups_per_job_csv(csv_file, period_csv, jobs)
+            self.data = pd.concat((db_data, csv_data), axis=0)
+            self.periods = pd.concat((period_db, period_csv), axis=0)
 
     def _event_signups_per_job(
         self,
         db: EventDataBase,
         conn: Connection,
-        period_names: set[str],
+        period_data: pd.DataFrame,
         jobs: Iterable[str],
     ):
         """
@@ -233,8 +236,8 @@ class EventSignups:
             A database object
         conn:
             A db connection object
-        period_names:
-            A set containing periods to extract from the database
+        period_data:
+            Dataframe containing period_names, start and end dates
         jobs:
             An iterable containing the jobs to consider
         """
@@ -261,7 +264,7 @@ class EventSignups:
             )
         )
 
-        periods = utils_analysis.get_periods(db, conn, period_names)
+        periods = period_data
 
         event_signup_count_per_job = utils_analysis.get_and_concat_periods(
             db, conn, event_signup_count_per_job_stmt, periods
@@ -282,10 +285,8 @@ class EventSignups:
 
     def _event_signups_per_job_csv(
         self,
-        db: EventDataBase,
-        conn: Connection,
         file: str,
-        period_names: set[str],
+        period_data: pd.DataFrame,
         jobs: Iterable[str],
     ) -> pd.DataFrame:
         """
@@ -298,10 +299,9 @@ class EventSignups:
         period_data
             Dataframe containing period names, start and end dates that are in
             the csv file
+        jobs
+            Iterable containing jobs to consider
         """
-
-        period_data = utils_analysis.get_periods(db, conn, period_names)
-
         periods = utils_analysis.generate_pd_periods(period_data, "D")
 
         event_signup_counts = pd.read_csv(file)
