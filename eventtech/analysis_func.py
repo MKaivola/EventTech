@@ -384,9 +384,14 @@ class EventSignups:
             fill_value=0.0,
         )
 
+        # Format results for plotting
         median_per_month = (
-            pd.DataFrame(index=np.arange(1, 13)).join(median_per_month).fillna(0.0)
-        ).rename_axis(index="Month", columns="Fiscal Year")
+            (pd.DataFrame(index=np.arange(1, 13)).join(median_per_month).fillna(0.0))
+            .rename_axis(index="Month", columns="Fiscal Year")
+            .stack()
+            .swaplevel()
+            .sort_index()
+        )
 
         return median_per_month
 

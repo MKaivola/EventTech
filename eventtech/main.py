@@ -80,3 +80,19 @@ with db.engine.begin() as conn:
         nrows=1,
         ncols=signup_counts_per_event.index.get_level_values(0).unique().__len__(),
     )
+
+    ### Compute median signups across jobs and months
+
+    median_signups_monthly = EventSignUps.event_signup_medians_per_month()
+
+    event_counts_stacked = event_counts.stack().swaplevel()
+
+    plotting_tools.outer_index_barplot(
+        event_counts_stacked,
+        "event_counts_per_year.pdf",
+        "Event counts for each fiscal year",
+        storage_config,
+        df_line_plot=median_signups_monthly,
+        nrows=1,
+        ncols=event_counts_stacked.index.get_level_values(0).unique().__len__(),
+    )

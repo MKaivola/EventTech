@@ -9,6 +9,7 @@ def outer_index_barplot(
     filename: str,
     suptitle: str,
     config: dict[str, str],
+    df_line_plot: pd.DataFrame = None,
     s3_client=None,
     xlab: str = "",
     nrows: int = 1,
@@ -28,7 +29,9 @@ def outer_index_barplot(
         A string specifying the name of the plot
     config:
         Storage configuration dictionary
-    s3_client
+    df_line_plot:
+        Optional MultiIndex dataframe for line plots
+    s3_client:
         AWS S3 client object
     xlab:
         A string specifying the x-axis label of each figure
@@ -53,6 +56,11 @@ def outer_index_barplot(
         df_xs = df.xs(outer_level, level=0)
 
         df_xs.plot(kind="bar", ax=ax, title=outer_level, rot=60, xlabel=xlab)
+
+        if df_line_plot is not None:
+            df_xs_line = df_line_plot.xs(outer_level, level=0)
+
+            ax.plot(df_xs_line.index - 1.0, df_xs_line, "ro")
 
     plt.suptitle(suptitle)
     plt.tight_layout()
