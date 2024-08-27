@@ -85,7 +85,9 @@ with db.engine.begin() as conn:
 
     median_signups_monthly = EventSignUps.event_signup_medians_per_month()
 
-    event_counts_stacked = event_counts.stack().swaplevel()
+    event_counts_stacked = (
+        event_counts.stack().swaplevel().sort_index().rename("Event counts")
+    )
 
     plotting_tools.outer_index_barplot(
         event_counts_stacked,
@@ -95,4 +97,27 @@ with db.engine.begin() as conn:
         df_line_plot=median_signups_monthly,
         nrows=1,
         ncols=event_counts_stacked.index.get_level_values(0).unique().__len__(),
+    )
+
+    ### Model monthly event counts and median signups via linear regression
+
+    monthly_series = [median_signups_monthly, event_counts_stacked]
+
+    change_indicators = {"Delegation": ("2023-2024",)}
+
+    monthly_model = analysis_func.LinearRegMonthly()
+
+    data_matrix, y = monthly_model.data_preprocess(monthly_series, change_indicators)
+
+    monthly_model.model.fit(data_matrix, y)
+
+    event_signups_changes = monthly_model.formatted_coef()
+
+    plotting_tools.outer_index_barplot(
+        event_signups_changes,
+        "changes_in_events_and_signups.pdf",
+        "Linear model effect estimate",
+        storage_config,
+        nrows=1,
+        ncols=event_signups_changes.index.get_level_values(0).unique().__len__(),
     )

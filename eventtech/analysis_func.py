@@ -4,6 +4,7 @@ import pandas as pd
 from sqlalchemy import Select, bindparam, Connection
 from sqlalchemy import func
 import numpy as np
+from sklearn.linear_model import LinearRegression
 
 from data.db_metadata import EventDataBase
 import eventtech.utils_analysis as utils_analysis
@@ -391,9 +392,95 @@ class EventSignups:
             .stack()
             .swaplevel()
             .sort_index()
+            .rename("Median signups")
         )
 
         return median_per_month
+
+
+class LinearRegMonthly:
+    def __init__(self) -> None:
+        self.model = LinearRegression(fit_intercept=False)
+
+        self.indicator_vars = []
+        self.response_names = []
+
+    def data_preprocess(
+        self, series_list: Iterable[pd.Series], indicator_vars: dict[str, Iterable[str]]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Preprocess data for linear regression
+        Model has indicators for each month
+        and for each relevant change in policy
+
+        Arguments
+        ---------
+        series_list
+            Sequence of series with MultiIndex indicating
+            fiscal year and month
+        indicator_vars
+            Dictionary mapping indicator names to their relevant years
+        Returns
+        -------
+        X
+            Data matrix ready for fitting
+        y
+            Response matrix ready for fitting
+        """
+
+        response_cols = pd.concat(series_list, axis=1)
+
+        # Months should have indicators in all models
+        month_one_hot = pd.get_dummies(
+            response_cols.reset_index("Month")["Month"], dtype="float"
+        )
+
+        for ind_name, years in indicator_vars.items():
+            # Specify which fiscal periods have an indicator
+            hot_years_series = pd.Series(np.repeat([1.0], len(years)), index=years)
+
+            # Add new indicator column based on index
+            month_one_hot[ind_name] = hot_years_series
+
+        # All NaNs should be coded as zero
+        month_one_hot = month_one_hot.fillna(0.0)
+
+        # Preserve feature names in sklearn by typecasting to string
+        month_one_hot.columns = month_one_hot.columns.astype(str)
+
+        self.indicator_vars = list(indicator_vars.keys())
+
+        self.response_names = response_cols.columns
+
+        return month_one_hot, response_cols
+
+    def formatted_coef(self) -> pd.DataFrame:
+        df = pd.DataFrame(
+            self.model.coef_,
+            columns=self.model.feature_names_in_,
+            index=self.response_names,
+        )
+
+        # Format coef dataframe for easier indicator adding
+        df_original = df.drop(columns=self.indicator_vars).T
+
+        # Typecast back to int to get natural ordering of months
+        df_original.index = df_original.index.astype(int)
+
+        for ind_name in self.indicator_vars:
+            # Add indicator estimate to all coef values
+            df_ind_add = df_original + df[ind_name]
+
+        # Format dataframes for plotting purposes
+        df_original = df_original.stack().swaplevel().sort_index().rename("Average")
+
+        df_ind_add = (
+            df_ind_add.stack().swaplevel().sort_index().rename("Average after change")
+        )
+
+        df_all = pd.concat([df_original, df_ind_add], axis=1).clip(lower=0.0)
+
+        return df_all
 
 
 def event_poll_durations_and_signups(
