@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+import re
 
 import pandas as pd
 from sqlalchemy import Select, bindparam, Connection
@@ -405,8 +406,10 @@ class LinearRegMonthly:
         self.indicator_vars = []
         self.response_names = []
 
-    def data_preprocess(
-        self, series_list: Iterable[pd.Series], indicator_vars: dict[str, Iterable[str]]
+    def _data_preprocess(
+        self,
+        series_list: Iterable[pd.Series],
+        indicator_vars: dict[str, pd.MultiIndex],
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Preprocess data for linear regression
@@ -419,7 +422,8 @@ class LinearRegMonthly:
             Sequence of series with MultiIndex indicating
             fiscal year and month
         indicator_vars
-            Dictionary mapping indicator names to their relevant years
+            Dictionary mapping indicator names to MultiIndex specifying
+            which (Fiscal year, month) are affected by the indicator
         Returns
         -------
         X
@@ -432,12 +436,20 @@ class LinearRegMonthly:
 
         # Months should have indicators in all models
         month_one_hot = pd.get_dummies(
-            response_cols.reset_index("Month")["Month"], dtype="float"
+            response_cols.reset_index("Month")["Month"],
+            dtype="float",
         )
 
-        for ind_name, years in indicator_vars.items():
+        # User fiscal year, month index
+        month_one_hot.index = response_cols.index
+
+        for ind_name, index in indicator_vars.items():
             # Specify which fiscal periods have an indicator
-            hot_years_series = pd.Series(np.repeat([1.0], len(years)), index=years)
+
+            hot_years_series = pd.Series(
+                np.repeat([1.0], len(index)),
+                index=index,
+            )
 
             # Add new indicator column based on index
             month_one_hot[ind_name] = hot_years_series
@@ -454,7 +466,7 @@ class LinearRegMonthly:
 
         return month_one_hot, response_cols
 
-    def formatted_coef(self) -> pd.DataFrame:
+    def _formatted_coef(self) -> pd.DataFrame:
         df = pd.DataFrame(
             self.model.coef_,
             columns=self.model.feature_names_in_,
@@ -467,9 +479,20 @@ class LinearRegMonthly:
         # Typecast back to int to get natural ordering of months
         df_original.index = df_original.index.astype(int)
 
+        df_ind_add = df_original.copy(deep=True)
+
         for ind_name in self.indicator_vars:
-            # Add indicator estimate to all coef values
-            df_ind_add = df_original + df[ind_name]
+            # Check if indicator ends with an underscore digit
+            m = re.search(r"_\d{1,2}$", ind_name)
+
+            if m is not None:
+                ind_month = ind_name[(m.start() + 1) : m.end()]
+
+                # Add indicator coef to specified month coef
+                df_ind_add.loc[int(ind_month), :] += df[ind_name]
+            else:
+                # Add indicator coef to all coefs
+                df_ind_add = df_ind_add + df[ind_name]
 
         # Format dataframes for plotting purposes
         df_original = df_original.stack().swaplevel().sort_index().rename("Average")
@@ -481,6 +504,17 @@ class LinearRegMonthly:
         df_all = pd.concat([df_original, df_ind_add], axis=1).clip(lower=0.0)
 
         return df_all
+
+    def fit_and_get_coef(
+        self,
+        series_list: Iterable[pd.Series],
+        indicator_vars: dict[str, pd.MultiIndex],
+    ):
+        X, y = self._data_preprocess(series_list, indicator_vars)
+
+        self.model.fit(X, y)
+
+        return self._formatted_coef()
 
 
 def event_poll_durations_and_signups(

@@ -3,6 +3,8 @@ import os
 
 from sqlalchemy import URL
 import boto3
+import pandas as pd
+import numpy as np
 
 from data.db_metadata import EventDataBase
 import eventtech.analysis_func as analysis_func
@@ -103,19 +105,37 @@ with db.engine.begin() as conn:
 
     monthly_series = [median_signups_monthly, event_counts_stacked]
 
-    change_indicators = {"Delegation": ("2023-2024",)}
+    change_indicators = {
+        "Delegation": pd.MultiIndex.from_product([("2023-2024",), np.arange(1, 13)])
+    }
+
+    change_indicators_monthly = {
+        "_".join(["Delegation", str(i)]): pd.MultiIndex.from_tuples([("2023-2024", i)])
+        for i in range(1, 13)
+    }
 
     monthly_model = analysis_func.LinearRegMonthly()
 
-    data_matrix, y = monthly_model.data_preprocess(monthly_series, change_indicators)
-
-    monthly_model.model.fit(data_matrix, y)
-
-    event_signups_changes = monthly_model.formatted_coef()
+    event_signups_changes = monthly_model.fit_and_get_coef(
+        monthly_series, change_indicators
+    )
 
     plotting_tools.outer_index_barplot(
         event_signups_changes,
-        "changes_in_events_and_signups.pdf",
+        "LinearRegression/changes_in_events_and_signups.pdf",
+        "Linear model effect estimate",
+        storage_config,
+        nrows=1,
+        ncols=event_signups_changes.index.get_level_values(0).unique().__len__(),
+    )
+
+    event_signups_changes = monthly_model.fit_and_get_coef(
+        monthly_series, change_indicators_monthly
+    )
+
+    plotting_tools.outer_index_barplot(
+        event_signups_changes,
+        "LinearRegression/changes_in_events_and_signups_monthly.pdf",
         "Linear model effect estimate",
         storage_config,
         nrows=1,
