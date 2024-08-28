@@ -177,6 +177,30 @@ def mock_EventSignups_db_and_csv(
     )
 
 
+@pytest.fixture
+def mock_AllTechnicianSignups(
+    mock_get_periods_only_db, mock_EventDataBase, mock_utils_analysis_method
+):
+    df = pd.DataFrame(
+        {
+            "name_tech": ["Jane", "John", "John", "Michael", "Jane"],
+            "date_event": [
+                pd.Timestamp(year=2021, month=9, day=1),
+                pd.Timestamp(year=2021, month=12, day=12),
+                pd.Timestamp(year=2022, month=3, day=9),
+                pd.Timestamp(year=2022, month=10, day=1),
+                pd.Timestamp(year=2023, month=2, day=2),
+            ],
+        }
+    )
+
+    mock_utils_analysis_method(df, "get_and_concat_periods")
+
+    return analysis_func.AllTechnicianSignups(
+        mock_EventDataBase, None, {"db": "db", "csv": "csv"}
+    )
+
+
 class TestMonthlyEventCounts:
     def test_monthly_event_counts(
         self, mock_get_periods_only_db, mock_utils_analysis_method, mock_EventDataBase
@@ -357,30 +381,13 @@ class TestMonthlyEventCounts:
         assert df_expected.equals(df_result)
 
 
-def test_yearly_technician_signups(
-    mock_get_periods_only_db, mock_utils_analysis_method, mock_EventDataBase
-):
-    df = pd.DataFrame(
-        {
-            "name_tech": ["Jane", "John", "John", "Michael", "Jane"],
-            "date_event": [
-                pd.Timestamp(year=2021, month=9, day=1),
-                pd.Timestamp(year=2021, month=12, day=12),
-                pd.Timestamp(year=2022, month=3, day=9),
-                pd.Timestamp(year=2022, month=10, day=1),
-                pd.Timestamp(year=2023, month=2, day=2),
-            ],
-        }
-    )
-
-    mock_utils_analysis_method(df, "get_and_concat_periods")
-
+def test_yearly_technician_signups(mock_AllTechnicianSignups):
     df_expected = pd.DataFrame(
         data={"2021-2022": [1, 2, 0], "2022-2023": [1, 0, 1]},
         index=["Jane", "John", "Michael"],
     ).rename_axis(index="name_tech", columns="Fiscal Year")
 
-    df_result = analysis_func.yearly_technician_signups(mock_EventDataBase, None, None)
+    df_result = mock_AllTechnicianSignups.yearly_technician_signups()
 
     assert df_expected.equals(df_result)
 

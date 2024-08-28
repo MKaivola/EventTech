@@ -51,13 +51,15 @@ with db.engine.begin() as conn:
         event_counts, "Number of events", "event_counts.pdf", storage_config, s3_client
     )
 
+    ### Analysis of technician signup data
+    TechnicianSignUps = analysis_func.AllTechnicianSignups(db, conn, fiscal_years)
+
     ### Plot how many signups each technician has for each year ###
-    signup_counts = analysis_func.yearly_technician_signups(
-        db, conn, ("2021-2022", "2022-2023")
-    )
+
+    annual_signup_counts = TechnicianSignUps.yearly_technician_signups()
 
     plotting_tools.barplot(
-        signup_counts,
+        annual_signup_counts,
         "Number of signups",
         "signup_counts.pdf",
         storage_config,

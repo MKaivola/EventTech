@@ -131,57 +131,89 @@ def _monthly_event_counts_csv(file: str, period_data: pd.DataFrame) -> pd.DataFr
     return event_counts
 
 
-def yearly_technician_signups(
-    db: EventDataBase, conn: Connection, period_names: Iterable[str]
-) -> pd.DataFrame:
+class AllTechnicianSignups:
     """
-    Extract yearly signup counts for each technician
+    Class representing technician event signups from database
 
     Arguments
     ---------
-    db:
-        A database object
-    conn:
-        A db connection object
-    period_names:
-        An iterable containing the period names to extract
+    db
+        Database object
+    conn
+        Database connection
+    period_names
+        A dictionary containing (source name, period name iterable) pairs to extract
     """
 
-    # Select each technician and event date from signup data for a given period
-    signups_for_period_stmt = (
-        Select(db.names.c.name_tech, db.events.c.date_event)
-        .join_from(db.signups, db.names, db.signups.c.name_id == db.names.c.id_name)
-        .join(db.events, db.events.c.id_event == db.signups.c.event_id)
-        .where(
-            bindparam("start_date") <= db.events.c.date_event,
-            db.events.c.date_event <= bindparam("end_date"),
+    def __init__(
+        self,
+        db: EventDataBase,
+        conn: Connection,
+        period_names: dict[str, set[str]],
+    ) -> None:
+        period_db = utils_analysis.get_periods(db, conn, period_names["db"])
+
+        db_data = self._technician_signup_data(db, conn, period_db)
+
+        self.data = db_data
+        self.periods = period_db
+
+    def _technician_signup_data(
+        self, db: EventDataBase, conn: Connection, period_data: pd.DataFrame
+    ) -> pd.DataFrame:
+        # Select each technician and event date from signup data for a given period
+        signups_for_period_stmt = (
+            Select(db.names.c.name_tech, db.events.c.date_event)
+            .join_from(db.signups, db.names, db.signups.c.name_id == db.names.c.id_name)
+            .join(db.events, db.events.c.id_event == db.signups.c.event_id)
+            .where(
+                bindparam("start_date") <= db.events.c.date_event,
+                db.events.c.date_event <= bindparam("end_date"),
+            )
         )
-    )
 
-    periods = utils_analysis.get_periods(db, conn, period_names)
+        periods = period_data
 
-    signups = utils_analysis.get_and_concat_periods(
-        db, conn, signups_for_period_stmt, periods
-    )
+        signups = utils_analysis.get_and_concat_periods(
+            db, conn, signups_for_period_stmt, periods
+        )
 
-    periods = utils_analysis.generate_pd_periods(periods, "D")
+        periods = utils_analysis.generate_pd_periods(periods, "D")
 
-    # Add Period objects corresponding to date_event for a merge
-    signups["Period"] = pd.to_datetime(signups["date_event"]).dt.to_period("D")
+        # Add Period objects corresponding to date_event for a merge
+        signups["Period"] = pd.to_datetime(signups["date_event"]).dt.to_period("D")
 
-    signups = signups.merge(periods, on="Period")
+        signups = signups.merge(periods, on="Period")
 
-    # Count the number of signups for each technician and fiscal year
-    signup_counts = pd.pivot_table(
-        signups,
-        index="name_tech",
-        columns="period_name",
-        values="Period",
-        aggfunc="count",
-        fill_value=0,
-    ).rename_axis(columns="Fiscal Year")
+        return signups
 
-    return signup_counts
+    def yearly_technician_signups(
+        self,
+    ) -> pd.DataFrame:
+        """
+        Compute yearly signup counts for each technician
+
+        Arguments
+        ---------
+        db:
+            A database object
+        conn:
+            A db connection object
+        period_names:
+            An iterable containing the period names to extract
+        """
+
+        # Count the number of signups for each technician and fiscal year
+        signup_counts = pd.pivot_table(
+            self.data,
+            index="name_tech",
+            columns="period_name",
+            values="Period",
+            aggfunc="count",
+            fill_value=0,
+        ).rename_axis(columns="Fiscal Year")
+
+        return signup_counts
 
 
 class EventSignups:
