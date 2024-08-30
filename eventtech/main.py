@@ -63,7 +63,20 @@ with db.engine.begin() as conn:
         "Number of signups",
         "signup_counts.pdf",
         storage_config,
-        s3_client,
+        s3_client=s3_client,
+    )
+
+    ### Compute and plot the distribution of technicians each fiscal year ###
+
+    tech_annual_dist = TechnicianSignUps.technician_annual_distribution()
+
+    plotting_tools.barplot(
+        tech_annual_dist,
+        "Technician distribution",
+        "tech_dist.pdf",
+        storage_config,
+        stacked=True,
+        s3_client=s3_client,
     )
 
     ### Analysis of event signup data

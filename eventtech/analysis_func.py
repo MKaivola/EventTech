@@ -183,7 +183,7 @@ class AllTechnicianSignups:
         # Add Period objects corresponding to date_event for a merge
         signups["Period"] = pd.to_datetime(signups["date_event"]).dt.to_period("D")
 
-        signups = signups.merge(periods, on="Period")
+        signups = signups.merge(periods, on="Period").drop(columns="date_event")
 
         return signups
 
@@ -192,15 +192,6 @@ class AllTechnicianSignups:
     ) -> pd.DataFrame:
         """
         Compute yearly signup counts for each technician
-
-        Arguments
-        ---------
-        db:
-            A database object
-        conn:
-            A db connection object
-        period_names:
-            An iterable containing the period names to extract
         """
 
         # Count the number of signups for each technician and fiscal year
@@ -214,6 +205,43 @@ class AllTechnicianSignups:
         ).rename_axis(columns="Fiscal Year")
 
         return signup_counts
+
+    def technician_annual_distribution(self) -> pd.DataFrame:
+        """
+        Compute the distribution of active technicians per fiscal year
+        based on their attendance behavior
+
+        Currently the categories are
+            - Joined this year
+            - Was also active previous year
+        """
+        technician_signup_years = (
+            self.data.drop(columns="Period").drop_duplicates().set_index("name_tech")
+        )
+
+        # One hot code each fiscal period in a long format
+        signup_year_one_hots = pd.get_dummies(technician_signup_years["period_name"])
+
+        # GroupBy and sum indicators to get a wide one hot representation
+        technician_one_hots = signup_year_one_hots.groupby("name_tech").sum()
+
+        annual_technician_count = technician_one_hots.sum(axis=0)
+
+        technicians_from_prev_year = (
+            technician_one_hots.iloc[:, 1:] * technician_one_hots.iloc[:, :-1].values
+        ).sum(axis=0)
+
+        new_technician_count = annual_technician_count.sub(
+            technicians_from_prev_year, fill_value=0
+        )
+
+        technician_counts = (
+            pd.concat([new_technician_count, technicians_from_prev_year], axis=1)
+            .fillna(0.0)
+            .rename(columns={0: "New technicians", 1: "Technicians from previous year"})
+        )
+
+        return technician_counts
 
 
 class EventSignups:

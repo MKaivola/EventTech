@@ -75,7 +75,12 @@ def outer_index_barplot(
 
 
 def barplot(
-    df: pd.DataFrame, title: str, filename: str, config: dict[str, str], s3_client=None
+    df: pd.DataFrame,
+    title: str,
+    filename: str,
+    config: dict[str, str],
+    stacked: bool = False,
+    s3_client=None,
 ) -> None:
     """
     Plot a single barplot based on a pandas dataframe
@@ -91,16 +96,22 @@ def barplot(
         A string specifying the filename
     config:
         Storage configuration dictionary
+    stacked:
+        Should the bar plot be stacked? By default, use clustered bar plot
     s3_client:
         AWS S3 client object
     """
+
+    fig, ax = plt.subplots(figsize=(19.2, 10.8))
 
     local_plot_dir = config["local_plot_dir"]
 
     full_path = "".join([local_plot_dir, "/", filename])
 
     # First save locally
-    df.plot(kind="bar", title=title).figure.savefig(full_path)
+    df.plot(kind="bar", ax=ax, title=title, stacked=stacked).figure.savefig(full_path)
+
+    plt.tight_layout()
 
     if s3_client is not None:
         s3_upload(full_path, config, s3_client)

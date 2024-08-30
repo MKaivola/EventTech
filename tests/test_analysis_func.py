@@ -381,15 +381,29 @@ class TestMonthlyEventCounts:
         assert df_expected.equals(df_result)
 
 
-def test_yearly_technician_signups(mock_AllTechnicianSignups):
-    df_expected = pd.DataFrame(
-        data={"2021-2022": [1, 2, 0], "2022-2023": [1, 0, 1]},
-        index=["Jane", "John", "Michael"],
-    ).rename_axis(index="name_tech", columns="Fiscal Year")
+class TestAllTechnicianSignups:
+    def test_yearly_technician_signups(self, mock_AllTechnicianSignups):
+        df_expected = pd.DataFrame(
+            data={"2021-2022": [1, 2, 0], "2022-2023": [1, 0, 1]},
+            index=["Jane", "John", "Michael"],
+        ).rename_axis(index="name_tech", columns="Fiscal Year")
 
-    df_result = mock_AllTechnicianSignups.yearly_technician_signups()
+        df_result = mock_AllTechnicianSignups.yearly_technician_signups()
 
-    assert df_expected.equals(df_result)
+        assert df_expected.equals(df_result)
+
+    def test_technician_annual_distribution(self, mock_AllTechnicianSignups):
+        df_expected = pd.DataFrame(
+            data={
+                "New technicians": [2.0, 1.0],
+                "Technicians from previous year": [0.0, 1.0],
+            },
+            index=["2021-2022", "2022-2023"],
+        )
+
+        df_result = mock_AllTechnicianSignups.technician_annual_distribution()
+
+        assert df_expected.equals(df_result)
 
 
 class TestEventSignups:
